@@ -8,7 +8,7 @@ st.caption("Financial risk intelligence · Analytics only, not investment advice
 
 st.subheader("Your portfolio")
 default = pd.DataFrame({"ticker": ["NVDA", "MSFT", "GOOGL", "ETH-USD"],
-                        "weight": [40, 30, 20, 10]})
+                        "weight": [50, 10, 30, 10]})
 pf = st.data_editor(default, num_rows="dynamic", key="pf")
 
 total = pf["weight"].sum()
@@ -30,3 +30,12 @@ sector_view = pd.DataFrame({
     "sector": [SECTORS[t] for t in weights.index],
 })
 st.dataframe(sector_view, hide_index=True)
+
+
+from engine.metrics import concentration
+
+st.subheader("Concentration")
+c = concentration(weights)
+col1, col2 = st.columns(2)
+col1.metric("Largest holding", f"{c['top_asset']} · {c['top_weight']:.0%}")
+col2.metric("Effective number of assets", f"{c['effective_assets']:.1f}")
