@@ -39,3 +39,21 @@ c = concentration(weights)
 col1, col2 = st.columns(2)
 col1.metric("Largest holding", f"{c['top_asset']} · {c['top_weight']:.0%}")
 col2.metric("Effective number of assets", f"{c['effective_assets']:.1f}")
+
+
+from engine.data import load_prices
+
+
+@st.cache_data(ttl=3600)
+def get_prices(tickers: tuple) -> pd.DataFrame:
+    return load_prices(list(tickers))
+
+
+prices = get_prices(tuple(weights.index)).dropna()
+
+st.subheader("Price history")
+st.caption(f"{len(prices)} trading days · "
+           f"{prices.index.min().date()} to {prices.index.max().date()}")
+st.line_chart(prices / prices.iloc[0] * 100)
+
+
