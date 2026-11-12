@@ -9,3 +9,16 @@ def concentration(w: pd.Series) -> dict:
         "top_weight": float(w.max()),
         "effective_assets": 1 / hhi,  # "you really own this many assets"
     }
+
+def portfolio_returns(prices: pd.DataFrame, w: pd.Series) -> pd.Series:
+    r = prices[w.index].dropna().pct_change().dropna()
+    return r @ w  # assumes weights held constant each day
+
+
+def volatility(pr: pd.Series) -> float:
+    return float(pr.std() * np.sqrt(252))  # annualised
+
+
+def max_drawdown(pr: pd.Series) -> float:
+    value = (1 + pr).cumprod()
+    return float((value / value.cummax() - 1).min())

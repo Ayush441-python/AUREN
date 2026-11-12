@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 from engine.universe import SECTORS
+from engine.metrics import concentration, portfolio_returns, volatility, max_drawdown
+
 
 st.set_page_config(page_title="AUREN", layout="wide")
 st.title("AUREN")
@@ -57,3 +59,28 @@ st.caption(f"{len(prices)} trading days · "
 st.line_chart(prices / prices.iloc[0] * 100)
 
 
+import plotly.express as px
+
+st.subheader("Volatility and drawdown")
+pr = portfolio_returns(prices, weights)
+vol = volatility(pr)
+mdd = max_drawdown(pr)
+
+col3, col4 = st.columns(2)
+col3.metric("Volatility (annualised)", f"{vol:.1%}")
+col4.metric("Worst drawdown (past 2 years)", f"{mdd:.1%}")
+
+value = (1 + pr).cumprod()
+drawdown = value / value.cummax() - 1
+fig = px.line(x=drawdown.index, y=drawdown.values)
+fig.update_traces(line_color="#E3B341")
+fig.update_layout(
+    title="Drawdown: how far the portfolio sat below its previous peak",
+    xaxis_title=None,
+    yaxis_title=None,
+    yaxis_tickformat=".0%",
+    showlegend=False,
+)
+st.plotly_chart(fig, use_container_width=True)
+st.caption("Based on past data. Past data does not predict the future. "
+           "Analytics only, not investment advice.")
