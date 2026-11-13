@@ -22,3 +22,13 @@ def volatility(pr: pd.Series) -> float:
 def max_drawdown(pr: pd.Series) -> float:
     value = (1 + pr).cumprod()
     return float((value / value.cummax() - 1).min())
+
+def correlation(prices: pd.DataFrame, tickers) -> pd.DataFrame:
+    return prices[list(tickers)].dropna().pct_change().dropna().corr()
+
+
+def high_pairs(corr: pd.DataFrame, threshold: float = 0.7) -> list[tuple]:
+    cols = list(corr.columns)
+    return [(a, b, round(float(corr.loc[a, b]), 2))
+            for i, a in enumerate(cols) for b in cols[i + 1:]
+            if corr.loc[a, b] > threshold]
