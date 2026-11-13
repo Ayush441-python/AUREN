@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 from engine.metrics import concentration, volatility, max_drawdown, correlation, high_pairs
-
+from engine.score import risk_score
 
 def test_equal_weights_effective_assets():
     w = pd.Series([0.25] * 4, index=list("ABCD"))
@@ -29,3 +29,21 @@ def test_high_pairs_finds_the_pair():
                            "B": [200, 202, 206, 204, 210]})
     corr = correlation(prices, ["A", "B"])
     assert high_pairs(corr) == [("A", "B", 1.0)]
+
+def test_safe_portfolio_scores_zero():
+    conc = {"top_weight": 0.10, "effective_assets": 10}
+    score, level, hits = risk_score(conc, 0.10, -0.05, [], 0.20)
+    assert score == 0 and level == "Low" and hits == []
+
+
+def test_worst_case_scores_100():
+    conc = {"top_weight": 0.60, "effective_assets": 1.5}
+    pairs = [("A", "B", 0.9), ("A", "C", 0.8)]
+    score, level, hits = risk_score(conc, 0.50, -0.50, pairs, 0.80)
+    assert score == 100 and level == "High"
+
+
+def test_single_rule_adds_its_points():
+    conc = {"top_weight": 0.40, "effective_assets": 10}
+    score, _, hits = risk_score(conc, 0.10, -0.05, [], 0.20)
+    assert score == 20 and len(hits) == 1

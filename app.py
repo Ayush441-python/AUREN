@@ -6,6 +6,7 @@ import streamlit as st
 from engine.data import load_prices
 from engine.metrics import (concentration, portfolio_returns, volatility,
                             max_drawdown, correlation, high_pairs)
+from engine.score import risk_score, RULE_TABLE  # NEW
 from engine.universe import SECTORS
 
 st.set_page_config(page_title="AUREN · See the risk before it sees you",
@@ -168,8 +169,23 @@ corr = correlation(prices, weights.index)
 pairs = high_pairs(corr)
 exposure = weights.groupby(lambda t: SECTORS[t]).sum().sort_values(ascending=False)
 
+# NEW: transparent risk score
+score, level, hits = risk_score(c, vol, mdd, pairs, float(exposure.max()))
+
+# NEW: live score card in the sidebar (updates as you edit weights)
+with st.sidebar:
+    st.markdown(
+        '<div class="card" style="text-align:center;margin-top:14px">'
+        '<div class="label">Risk score</div>'
+        f'<div class="value gold" style="font-size:2.4rem">{score}'
+        '<span style="font-size:0.9rem;color:#8A8F98"> / 100</span></div>'
+        f'<div class="sub">{level}</div></div>',
+        unsafe_allow_html=True)
+
 # ------------------------------------------------------------------- tabs
-tab_pf, tab_risk, tab_corr = st.tabs(["Portfolio", "Risk", "Correlation"])
+# NEW: added the "Risk Overview" tab
+tab_pf, tab_score, tab_risk, tab_corr = st.tabs(
+    ["Portfolio", "Risk Overview", "Risk", "Correlation"])
 
 # ---- Portfolio
 with tab_pf:
@@ -209,6 +225,35 @@ with tab_pf:
         fig.update_yaxes(gridcolor="rgba(0,0,0,0)")
         with st.container(border=True):
             st.plotly_chart(fig)
+
+# ---- NEW: Risk Overview
+with tab_score:
+    left, right = st.columns([1, 1.6])
+    with left:
+        st.markdown(
+            '<div class="card" style="text-align:center">'
+            '<div class="label">Risk score</div>'
+            f'<div class="value gold" style="font-size:4.4rem">{score}'
+            '<span style="font-size:1.3rem;color:#8A8F98"> / 100</span></div>'
+            f'<div class="sub">Level: <b style="color:#F5F6F7">{level}</b></div>'
+            '</div>', unsafe_allow_html=True)
+        st.progress(score / 100)
+    with right:
+        section("Why this score", "Every point comes with a reason")
+        if hits:
+            for pts, why in hits:
+                st.markdown(callout(f"<b>+{pts}</b> · {why}"),
+                            unsafe_allow_html=True)
+        else:
+            st.markdown(callout("No rules triggered for this portfolio.", muted=True),
+                        unsafe_allow_html=True)
+    with st.expander("See every rule"):
+        st.dataframe(pd.DataFrame(RULE_TABLE, columns=["Points", "Rule"]),
+                     hide_index=True)
+        st.caption("The thresholds are judgement calls, not laws of finance. "
+                   "They are public so you can disagree with them.")
+    st.caption("A rule-based measure of past data, not a prediction. "
+               "Analytics only, not investment advice.")
 
 # ---- Risk
 with tab_risk:
