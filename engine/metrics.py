@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 import pandas as pd
 from engine.universe import GROUPS
@@ -9,7 +11,7 @@ def sector_exposure(w: pd.Series) -> pd.Series:
 
 
 def concentration(w: pd.Series) -> dict:
-    hhi = float((w ** 2).sum())  # 1.0 = everything in one asset
+    hhi = math.fsum(w ** 2)  # 1.0 = everything in one asset
     return {
         "top_asset": w.idxmax(),
         "top_weight": float(w.max()),
