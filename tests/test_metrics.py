@@ -22,6 +22,15 @@ def test_drawdown_known_case():
     assert max_drawdown(pr) == pytest.approx(-0.5)
 
 
+def test_drawdown_includes_initial_capital():
+    pr = pd.Series([-0.50, 0.10])  # 1.00 -> 0.50 -> 0.55
+    assert max_drawdown(pr) == pytest.approx(-0.5)
+
+
+def test_drawdown_full_loss():
+    assert max_drawdown(pd.Series([-1.0, 0.0])) == pytest.approx(-1.0)
+
+
 def test_no_swings_no_volatility():
     assert volatility(pd.Series([0.01] * 10)) == pytest.approx(0)
 
