@@ -658,24 +658,47 @@ with tab_liq:
     dte = days_to_exit(pos_values, adv, participation=0.10)
 
     lq1, lq2, lq3 = st.columns(3)
-    max_dte_ticker = dte.idxmax() if not dte.empty else "N/A"
-    max_dte_val = dte.max() if not dte.empty else 0.0
-    lq1.markdown(card("Max days to exit", f"{max_dte_val:.2f} days", f"Holding: {max_dte_ticker}"), unsafe_allow_html=True)
+    blocked = dte.eq(float("inf"))
+    incomplete = dte.isna().any() or dte.empty
+    all_under_one_day = False
+    if blocked.any():
+        blocked_tickers = ", ".join(dte.index[blocked])
+        max_display, detail = "No finite exit", blocked_tickers
+        notice = f"Zero modeled trading capacity for <b>{blocked_tickers}</b>. These holdings cannot be sold at the current volume cap."
+    elif incomplete:
+        max_display, detail = "Unknown", "Missing volume data"
+        notice = "Volume data is unavailable for a holding. The full portfolio's exit time is unknown."
+    else:
+        slowest = dte.idxmax()
+        max_days = dte.at[slowest]
+        max_display, detail = f"{max_days:.2f} days", f"Holding: {slowest}"
+        all_under_one_day = max_days < 1
+        if all_under_one_day:
+            notice = "✓ All portfolio positions can be fully liquidated in under 1 trading day at 10% volume participation."
+        else:
+            notice = f"<b>Liquidity Notice:</b> Liquidating <b>{slowest}</b> would require at least 1 trading day ({max_days:.2f} days) at 10% volume participation."
+    lq1.markdown(card("Max days to exit", max_display, detail), unsafe_allow_html=True)
     lq2.markdown(card("Participation rate", "10%", "Standard conservative liquidation cap"), unsafe_allow_html=True)
-    lq3.markdown(card("30D average volume", "Active", "Computed over last 30 trading sessions", gold=True), unsafe_allow_html=True)
+    lq3.markdown(card("30D average volume", "Incomplete" if incomplete else "Active", "Computed over last 30 trading sessions", gold=True), unsafe_allow_html=True)
 
     liq_rows = []
     for t in weights.index:
         v_daily = adv.get(t, float("nan"))
         days = dte.get(t, float("nan"))
         pos_val = pos_values[t]
+        if pd.isna(days):
+            status = "Unknown (missing volume)"
+        elif days == float("inf"):
+            status = "No trading capacity"
+        else:
+            status = "Instant (<0.1d)" if days < 0.1 else "Liquid (<1d)" if days < 1.0 else "Illiquid (1d+)"
         liq_rows.append({
             "Ticker": t,
             "Position ($)": pos_val,
             "30D Daily Traded ($)": v_daily,
             "10% Cap ($/day)": v_daily * 0.10 if pd.notna(v_daily) else float("nan"),
             "Days to Exit": days,
-            "Liquidity Status": "Instant (<0.1d)" if days < 0.1 else "Liquid (<1d)" if days < 1.0 else "Illiquid (1d+)"
+            "Liquidity Status": status
         })
     liq_df = pd.DataFrame(liq_rows)
 
@@ -689,12 +712,7 @@ with tab_liq:
         }
     )
 
-    if max_dte_val > 1.0:
-        st.markdown(callout(
-            f"<b>Liquidity Notice:</b> Liquidating <b>{max_dte_ticker}</b> would require more than 1 full trading day "
-            f"({max_dte_val:.2f} days) at 10% volume participation.", danger=True), unsafe_allow_html=True)
-    else:
-        st.markdown(callout("✓ All portfolio positions can be fully liquidated in under 1 trading day at 10% volume participation.", muted=True), unsafe_allow_html=True)
+    st.markdown(callout(notice, muted=all_under_one_day, danger=not all_under_one_day), unsafe_allow_html=True)
 
     st.caption("Volume data from Yahoo Finance. Crypto volumes are USD-denominated. Past trading volume may dry up during crises.")
 
