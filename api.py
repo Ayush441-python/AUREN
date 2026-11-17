@@ -60,9 +60,17 @@ def risk(p: Portfolio):
             status_code=500, detail="Failed to load historical price series"
         )
 
+    missing = [t for t in w.index if t not in prices.columns]
+    if missing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Historical price data unavailable for tickers: {missing}",
+        )
+
     pr = portfolio_returns(prices, w)
     conc = concentration(w)
-    vol = volatility(pr)
+    crypto_weight = float(sum(wt for t, wt in w.items() if t.endswith("-USD") or t in ("BTC-USD", "ETH-USD")))
+    vol = volatility(pr, crypto_weight=crypto_weight)
     mdd = max_drawdown(pr)
 
     corr = correlation(prices, w.index)

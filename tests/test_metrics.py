@@ -73,3 +73,26 @@ def test_stress_scenario():
     w = pd.Series([0.5, 0.5], index=["NVDA", "GLD"])
     shocks = {"Big Tech": -0.20}
     assert stress(w, shocks) == pytest.approx(-0.10)
+
+
+def test_crypto_volatility_scaling():
+    # Pure crypto should scale by sqrt(365), pure equity by sqrt(252)
+    import numpy as np
+    pr = pd.Series([0.01, -0.01, 0.02, -0.02])
+    vol_eq = volatility(pr, crypto_weight=0.0)
+    vol_cr = volatility(pr, crypto_weight=1.0)
+    assert vol_cr / vol_eq == pytest.approx(np.sqrt(365) / np.sqrt(252))
+
+
+def test_empty_max_drawdown_clean_zero():
+    empty_pr = pd.Series([], dtype=float)
+    assert max_drawdown(empty_pr) == 0.0
+
+
+def test_portfolio_returns_missing_keys_raises_keyerror():
+    from engine.metrics import portfolio_returns
+    w = pd.Series([0.5, 0.5], index=["NVDA", "ETH-USD"])
+    df = pd.DataFrame({"NVDA": [100, 105, 110]})
+    with pytest.raises(KeyError):
+        portfolio_returns(df, w)
+
