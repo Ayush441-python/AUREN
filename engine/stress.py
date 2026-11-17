@@ -30,9 +30,24 @@ def shock_for(ticker: str, shocks: dict) -> float:
 
 
 def stress(w: pd.Series, shocks: dict) -> float:
-    return float(sum(wt * shock_for(t, shocks) for t, wt in w.items()))
+    if w.empty:
+        return 0.0
+    val = float(sum(wt * shock_for(t, shocks) for t, wt in w.items()))
+    return 0.0 if np.isnan(val) or np.isinf(val) else val
 
 
 def worst_periods(pr: pd.Series) -> dict:
-    month = (1 + pr).rolling(21).apply(np.prod, raw=True) - 1
-    return {"worst_day": float(pr.min()), "worst_month": float(month.min())}
+    if pr.empty:
+        return {"worst_day": 0.0, "worst_month": 0.0}
+    pr_clean = pr.dropna()
+    if pr_clean.empty:
+        return {"worst_day": 0.0, "worst_month": 0.0}
+    w_day = float(pr_clean.min())
+    worst_day = 0.0 if np.isnan(w_day) or np.isinf(w_day) else w_day
+    if len(pr_clean) < 21:
+        worst_month = 0.0
+    else:
+        month = (1 + pr_clean).rolling(21).apply(np.prod, raw=True) - 1
+        m_val = month.min()
+        worst_month = 0.0 if np.isnan(m_val) or np.isinf(m_val) else float(m_val)
+    return {"worst_day": worst_day, "worst_month": worst_month}

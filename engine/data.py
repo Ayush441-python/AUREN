@@ -15,6 +15,7 @@ def _download(field: str, tickers: list[str], period: str) -> pd.DataFrame | Non
         if isinstance(df, pd.Series):
             df = df.to_frame(tickers[0])
         df = df.dropna(how="all")
+        df = df.dropna(axis=1, how="all")
         if not df.empty:
             return df
     except Exception:
@@ -29,9 +30,35 @@ def _cached(path: pathlib.Path, tickers: list[str]) -> pd.DataFrame:
 
 def load_prices(tickers: list[str], period: str = "2y") -> pd.DataFrame:
     df = _download("Close", tickers, period)
-    return df if df is not None else _cached(CACHE, tickers)
+    if df is not None:
+        missing = [t for t in tickers if t not in df.columns or df[t].dropna().empty]
+        if not missing:
+            return df
+        cached = _cached(CACHE, tickers)
+        cached_missing = [t for t in tickers if t not in cached.columns or cached[t].dropna().empty]
+        if not cached_missing:
+            return cached
+        combined = df.copy()
+        for t in tickers:
+            if (t not in combined.columns or combined[t].dropna().empty) and t in cached.columns and not cached[t].dropna().empty:
+                combined[t] = cached[t]
+        return combined
+    return _cached(CACHE, tickers)
 
 
 def load_volumes(tickers: list[str], period: str = "2y") -> pd.DataFrame:
     df = _download("Volume", tickers, period)
-    return df if df is not None else _cached(VOL_CACHE, tickers)
+    if df is not None:
+        missing = [t for t in tickers if t not in df.columns or df[t].dropna().empty]
+        if not missing:
+            return df
+        cached = _cached(VOL_CACHE, tickers)
+        cached_missing = [t for t in tickers if t not in cached.columns or cached[t].dropna().empty]
+        if not cached_missing:
+            return cached
+        combined = df.copy()
+        for t in tickers:
+            if (t not in combined.columns or combined[t].dropna().empty) and t in cached.columns and not cached[t].dropna().empty:
+                combined[t] = cached[t]
+        return combined
+    return _cached(VOL_CACHE, tickers)
