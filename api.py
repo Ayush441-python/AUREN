@@ -62,12 +62,13 @@ def risk(p: Portfolio):
 
     pr = portfolio_returns(prices, w)
     conc = concentration(w)
-    vol = volatility(pr)
+    exposure = sector_exposure(w)
+    crypto_w = float(exposure.get("Crypto", 0.0))
+    vol = volatility(pr, crypto_weight=crypto_w)
     mdd = max_drawdown(pr)
 
     corr = correlation(prices, w.index)
     pairs = high_pairs(corr)
-    exposure = sector_exposure(w)
 
     score, level, hits = risk_score(
         conc, vol, mdd, pairs, float(exposure.max()) if not exposure.empty else 0.0
