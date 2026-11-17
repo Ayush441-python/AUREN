@@ -52,11 +52,25 @@ def token_balances(wallet: str, tokens: list[dict], rpc_url: str = BASE_RPC,
         resp = r.json()
         if isinstance(resp, dict):  # the RPC rejected the batch
             raise RuntimeError(resp.get("error", {}).get("message", "RPC rejected the request"))
+        if not isinstance(resp, list):
+            raise RuntimeError("RPC returned an invalid balance batch")
+        seen = set()
         for item in resp:
+            if not isinstance(item, dict):
+                raise RuntimeError("RPC returned an invalid balance response")
+            response_id = item.get("id")
+            if (type(response_id) is not int or response_id < 0
+                    or response_id >= len(part) or response_id in seen):
+                raise RuntimeError("RPC returned an invalid or duplicate balance response ID")
+            seen.add(response_id)
             result = item.get("result")
-            if not result or result == "0x":
-                continue
-            raw = int(result, 16)
+            if ("error" in item or not isinstance(result, str)
+                    or re.fullmatch(r"0x[0-9a-fA-F]+", result) is None):
+                raise RuntimeError(f"RPC failed to read balance for {part[response_id]['contract_address']}")
+        if seen != set(range(len(part))):
+            raise RuntimeError("RPC returned an incomplete balance batch")
+        for item in resp:
+            raw = int(item["result"], 16)
             if raw > 0:
                 t = part[item["id"]]
                 out[t["contract_address"].lower()] = raw / 10 ** int(t.get("decimals", 18))
