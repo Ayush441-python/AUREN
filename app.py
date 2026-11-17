@@ -9,7 +9,8 @@ from engine.data import load_prices, load_volumes
 from engine.env import load_env, setting
 from engine.liquidity import avg_daily_value, days_to_exit
 from engine.metrics import (concentration, portfolio_returns, volatility,
-                            max_drawdown, correlation, high_pairs, sector_exposure)
+                            max_drawdown, correlation, high_pairs, sector_exposure,
+                            industry_exposure)
 from engine.report import ai_report, unverified_numbers
 from engine.score import risk_score, RULE_TABLE
 from engine.stress import SCENARIOS, stress, worst_periods
@@ -161,12 +162,14 @@ def analyze(w: pd.Series):
     corr = correlation(prices, w.index)
     pairs = high_pairs(corr)
     exposure = sector_exposure(w)
+    industry = industry_exposure(w)
     periods = worst_periods(pr)
-    max_sector_val = float(exposure.max()) if not exposure.empty else 0.0
+    max_sector_val = float(industry.max()) if not industry.empty else 0.0
     score, level, hits = risk_score(c, vol, mdd, pairs, max_sector_val)
 
     return dict(prices=prices, c=c, pr=pr, vol=vol, mdd=mdd, value=value,
                 drawdown=drawdown, corr=corr, pairs=pairs, exposure=exposure,
+                industry=industry,
                 score=score, level=level, hits=hits, periods=periods)
 
 
@@ -369,7 +372,7 @@ with tab_pf:
     k3.markdown(card("Effective assets", f"{c['effective_assets']:.1f}",
                       f"Behaves like {c['effective_assets']:.1f} equal holdings, not {n}",
                       gold=True), unsafe_allow_html=True)
-    k4.markdown(card("Top sector", f"{exposure.max():.0%}", exposure.idxmax()),
+    k4.markdown(card("Top industry", f"{industry.max():.0%}", industry.idxmax()),
                 unsafe_allow_html=True)
 
     left, right = st.columns([1.1, 1])

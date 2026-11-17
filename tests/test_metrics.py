@@ -7,6 +7,7 @@ from engine.metrics import (
     correlation,
     high_pairs,
     sector_exposure,
+    industry_exposure,
 )
 from engine.score import risk_score
 from engine.stress import stress
@@ -73,3 +74,19 @@ def test_stress_scenario():
     w = pd.Series([0.5, 0.5], index=["NVDA", "GLD"])
     shocks = {"Big Tech": -0.20}
     assert stress(w, shocks) == pytest.approx(-0.10)
+
+
+def test_industry_exposure_splits_a_single_group():
+    # Every name is a semiconductor, so the industry view is one 100% bet even
+    # though the broad risk group "AI & Semiconductors" only holds half of it.
+    w = pd.Series([0.25] * 4, index=["NVDA", "AVGO", "AMD", "MU"])
+    assert industry_exposure(w).get("Semiconductors", 0) == pytest.approx(0.75)
+    assert industry_exposure(w).max() > 0.50
+
+
+def test_industry_concentration_rule_fires_for_one_industry_book():
+    w = pd.Series([0.25] * 4, index=["NVDA", "AVGO", "AMD", "MU"])
+    conc = concentration(w)
+    score, level, hits = risk_score(conc, 0.10, -0.05, [], float(industry_exposure(w).max()))
+    assert [why for _, why in hits] == ["75% sits in one sector"]
+    assert score == 15 and level == "Low"
