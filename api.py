@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -61,6 +62,12 @@ def risk(p: Portfolio):
         )
 
     pr = portfolio_returns(prices, w)
+    if len(pr) < 2 or not np.isfinite(pr.to_numpy(dtype=float)).all():
+        raise HTTPException(
+            status_code=422,
+            detail="At least two finite daily portfolio returns are required to calculate risk metrics",
+        )
+
     conc = concentration(w)
     vol = volatility(pr)
     mdd = max_drawdown(pr)
