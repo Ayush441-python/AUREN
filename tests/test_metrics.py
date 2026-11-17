@@ -1,7 +1,9 @@
+import numpy as np
 import pandas as pd
 import pytest
 from engine.metrics import (
     concentration,
+    portfolio_returns,
     volatility,
     max_drawdown,
     correlation,
@@ -24,6 +26,28 @@ def test_drawdown_known_case():
 
 def test_no_swings_no_volatility():
     assert volatility(pd.Series([0.01] * 10)) == pytest.approx(0)
+
+
+def test_crypto_volatility_annualises_over_365_days():
+    pr = pd.Series([0.01, -0.02, 0.015, -0.005, 0.02])
+    assert volatility(pr, crypto_weight=1.0) == pytest.approx(float(pr.std() * np.sqrt(365)))
+    assert volatility(pr, crypto_weight=1.0) > volatility(pr)
+
+
+def test_mixed_portfolio_keeps_weekend_crypto_returns():
+    dates = pd.date_range("2026-11-06", periods=4, freq="D")
+    prices = pd.DataFrame(
+        {"NVDA": [140.0, np.nan, np.nan, 142.0],
+         "BTC-USD": [100.0, 102.0, 101.0, 104.0]},
+        index=dates,
+    )
+    w = pd.Series({"NVDA": 0.5, "BTC-USD": 0.5})
+    pr = portfolio_returns(prices, w)
+    assert list(pr.index) == list(dates[1:])
+    assert pr.iloc[0] == pytest.approx(0.5 * (102 / 100 - 1))
+    assert pr.iloc[1] == pytest.approx(0.5 * (101 / 102 - 1))
+    assert pr.iloc[2] == pytest.approx(
+        0.5 * (104 / 101 - 1) + 0.5 * (142 / 140 - 1))
 
 
 def test_perfectly_correlated_assets():

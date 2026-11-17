@@ -20,12 +20,13 @@ def concentration(w: pd.Series) -> dict:
 
 
 def portfolio_returns(prices: pd.DataFrame, w: pd.Series) -> pd.Series:
-    r = prices[w.index].dropna().pct_change().dropna()
+    r = prices[w.index].ffill().dropna().pct_change().dropna()
     return r @ w  # assumes weights held constant each day
 
 
-def volatility(pr: pd.Series) -> float:
-    return float(pr.std() * np.sqrt(252))  # annualised
+def volatility(pr: pd.Series, crypto_weight: float = 0.0) -> float:
+    trading_days = 365.0 * crypto_weight + 252.0 * (1.0 - crypto_weight)
+    return float(pr.std() * np.sqrt(trading_days))  # annualised
 
 
 def max_drawdown(pr: pd.Series) -> float:
