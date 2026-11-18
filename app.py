@@ -744,8 +744,13 @@ with tab_whatif:
     sig = str(abs(hash(tuple(zip(weights.index, weights.round(4))))))
     base_b = pd.DataFrame({"ticker": list(weights.index),
                            "weight": list(weights.values * 100)})
-    wb_df = st.data_editor(base_b, num_rows="dynamic", hide_index=True,
-                           key=f"pfb_{sig}", column_config=PF_COLUMNS)
+    if f"whatif_src_{sig}" not in st.session_state:
+        st.session_state[f"whatif_src_{sig}"] = base_b
+    st.session_state.setdefault(f"whatif_v_{sig}", 0)
+    v_b = st.session_state[f"whatif_v_{sig}"]
+
+    wb_df = st.data_editor(st.session_state[f"whatif_src_{sig}"], num_rows="dynamic", hide_index=True,
+                           key=f"pfb_{sig}_{v_b}", column_config=PF_COLUMNS)
     wb_df = wb_df.dropna(subset=["ticker", "weight"])
     tot_b = float(wb_df["weight"].sum())
     ok_b = abs(tot_b - 100) <= 0.01
@@ -756,8 +761,13 @@ with tab_whatif:
     with wb_col2:
         if not ok_b and tot_b > 0:
             if st.button("Normalize What-if to 100%"):
-                wb_df["weight"] = (wb_df["weight"] / tot_b * 100).round(1)
-                st.session_state[f"pfb_{sig}"] = wb_df.reset_index(drop=True)
+                weights_b = (wb_df["weight"] / tot_b * 100).round(1)
+                diff_b = round(100.0 - float(weights_b.sum()), 1)
+                if diff_b != 0 and len(weights_b) > 0:
+                    weights_b.iloc[0] = round(weights_b.iloc[0] + diff_b, 1)
+                wb_df["weight"] = weights_b
+                st.session_state[f"whatif_src_{sig}"] = wb_df.reset_index(drop=True)
+                st.session_state[f"whatif_v_{sig}"] += 1
                 st.rerun()
 
     if wb_df.empty or wb_df["ticker"].duplicated().any():
