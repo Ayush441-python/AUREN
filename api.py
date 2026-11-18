@@ -55,9 +55,9 @@ def risk(p: Portfolio):
     w = w / w.sum()
 
     prices = load_prices(list(w.index))
-    if prices.empty:
+    if prices.empty or len(prices[list(w.index)].dropna()) < 2:
         raise HTTPException(
-            status_code=500, detail="Failed to load historical price series"
+            status_code=500, detail="Failed to load sufficient overlapping historical price series"
         )
 
     pr = portfolio_returns(prices, w)
