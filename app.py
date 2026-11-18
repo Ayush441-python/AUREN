@@ -9,7 +9,8 @@ from engine.data import load_prices, load_volumes
 from engine.env import load_env, setting
 from engine.liquidity import avg_daily_value, days_to_exit
 from engine.metrics import (concentration, portfolio_returns, volatility,
-                            max_drawdown, correlation, high_pairs, sector_exposure)
+                            max_drawdown, correlation, high_pairs, sector_exposure,
+                            risk_contributions)
 from engine.report import ai_report, unverified_numbers
 from engine.score import risk_score, RULE_TABLE
 from engine.stress import SCENARIOS, stress, worst_periods
@@ -375,11 +376,13 @@ with tab_pf:
     left, right = st.columns([1.1, 1])
     with left:
         section("Holdings", "Each asset, its industry, and dollar value")
+        rc = risk_contributions(prices, weights)
         holdings = pd.DataFrame({
             "Ticker": weights.index,
             "Industry": [SECTORS.get(t, "Unknown") for t in weights.index],
             "Sector Group": [GROUPS.get(t, "Other") for t in weights.index],
             "Weight %": weights.values * 100,
+            "Risk Share %": [rc.get(t, weights[t]) * 100 for t in weights.index],
             "Value ($)": weights.values * size,
         })
         st.dataframe(
@@ -387,6 +390,8 @@ with tab_pf:
             column_config={
                 "Weight %": st.column_config.ProgressColumn(
                     "Weight %", min_value=0, max_value=100, format="%.1f%%"),
+                "Risk Share %": st.column_config.ProgressColumn(
+                    "Risk Share %", min_value=0, max_value=100, format="%.1f%%"),
                 "Value ($)": st.column_config.NumberColumn("Value ($)", format="$%,.0f"),
             })
     with right:
