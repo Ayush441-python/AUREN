@@ -607,7 +607,7 @@ with tab_stress:
         scen_df, hide_index=True,
         column_config={
             "Impact %": st.column_config.ProgressColumn(
-                "Impact %", min_value=-0.50, max_value=0.10, format="%+.1f%%"),
+                "Impact %", min_value=-0.50, max_value=0.10, format="percent"),
             "Estimated Loss ($)": st.column_config.NumberColumn(
                 "Estimated Loss ($)", format="$%,.0f"),
             "Portfolio Value After ($)": st.column_config.NumberColumn(
