@@ -872,13 +872,27 @@ with tab_ai:
         try:
             with st.spinner("Generating grounded risk intelligence report…"):
                 text = ai_report(metrics, base_url, api_key, model)
-            st.session_state.report = (metrics_json, text)
+            reasons = [f"- +{p} · {why}" for p, why in hits] or ["- No rules triggered"]
+            saved_md = "\n".join([
+                "# AUREN Risk Intelligence Report", "",
+                f"**Risk Score:** {score} / 100 ({level} Risk)", "",
+                "## Score Breakdown", *reasons, "",
+                "## Key Financial Metrics",
+                f"- Largest Holding: {c['top_asset']} ({c['top_weight']:.1%})",
+                f"- Top 3 Holdings: {c['top3_weight']:.1%}",
+                f"- Effective Assets (1/HHI): {c['effective_assets']:.1f}",
+                f"- Annualised Volatility: {vol:.1%}",
+                f"- Maximum Drawdown: {mdd:.1%}", "",
+                "## AI Risk Assessment", text, "",
+                "_Analytics only, not investment advice. Past performance is no guarantee of future returns._"])
+            st.session_state.report = (metrics_json, text, saved_md)
             rep = st.session_state.report
         except Exception as e:
             st.error(f"Could not generate report: {e}")
 
     if rep:
-        if rep[0] != metrics_json:
+        is_stale = rep[0] != metrics_json
+        if is_stale:
             st.markdown(callout("The portfolio configuration has changed since this report was generated. Click 'Generate AI Report' to refresh.", muted=True), unsafe_allow_html=True)
         st.markdown(rep[1])
         bad = unverified_numbers(rep[1], metrics)
@@ -889,20 +903,27 @@ with tab_ai:
         else:
             st.caption("✓ Hallucination check passed: All numerical citations in the report match deterministic engine output.")
 
-        reasons = [f"- +{p} · {why}" for p, why in hits] or ["- No rules triggered"]
-        md = "\n".join([
-            "# AUREN Risk Intelligence Report", "",
-            f"**Risk Score:** {score} / 100 ({level} Risk)", "",
-            "## Score Breakdown", *reasons, "",
-            "## Key Financial Metrics",
-            f"- Largest Holding: {c['top_asset']} ({c['top_weight']:.1%})",
-            f"- Top 3 Holdings: {c['top3_weight']:.1%}",
-            f"- Effective Assets (1/HHI): {c['effective_assets']:.1f}",
-            f"- Annualised Volatility: {vol:.1%}",
-            f"- Maximum Drawdown: {mdd:.1%}", "",
-            "## AI Risk Assessment", rep[1], "",
-            "_Analytics only, not investment advice. Past performance is no guarantee of future returns._"])
-        st.download_button("Download Report (.md)", md, "auren-risk-report.md", mime="text/markdown")
+        report_md = rep[2] if len(rep) > 2 else ""
+        if not report_md:
+            reasons = [f"- +{p} · {why}" for p, why in hits] or ["- No rules triggered"]
+            report_md = "\n".join([
+                "# AUREN Risk Intelligence Report", "",
+                f"**Risk Score:** {score} / 100 ({level} Risk)", "",
+                "## Score Breakdown", *reasons, "",
+                "## Key Financial Metrics",
+                f"- Largest Holding: {c['top_asset']} ({c['top_weight']:.1%})",
+                f"- Top 3 Holdings: {c['top3_weight']:.1%}",
+                f"- Effective Assets (1/HHI): {c['effective_assets']:.1f}",
+                f"- Annualised Volatility: {vol:.1%}",
+                f"- Maximum Drawdown: {mdd:.1%}", "",
+                "## AI Risk Assessment", rep[1], "",
+                "_Analytics only, not investment advice. Past performance is no guarantee of future returns._"])
+        if is_stale:
+            st.download_button(
+                "Download Report (.md)", report_md, "auren-risk-report.md", mime="text/markdown",
+                disabled=True, help="Portfolio has changed. Click 'Generate AI Report' to refresh before downloading.")
+        else:
+            st.download_button("Download Report (.md)", report_md, "auren-risk-report.md", mime="text/markdown")
 
     with st.expander("Inspect Deterministic Metrics JSON (Ground Truth)"):
         st.json(metrics)
