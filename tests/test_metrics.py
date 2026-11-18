@@ -73,3 +73,19 @@ def test_stress_scenario():
     w = pd.Series([0.5, 0.5], index=["NVDA", "GLD"])
     shocks = {"Big Tech": -0.20}
     assert stress(w, shocks) == pytest.approx(-0.10)
+
+
+def test_download_partial_nan_column_falls_back_to_cache(monkeypatch):
+    import types
+    import engine.data as data_mod
+    dates = pd.date_range("2026-01-01", periods=5, freq="D")
+    partial_close = pd.DataFrame(
+        {"NVDA": [100.0, 102.0, 101.0, 105.0, 104.0], "MSFT": [float("nan")] * 5},
+        index=dates,
+    )
+    fake_yf = types.SimpleNamespace(download=lambda *args, **kwargs: {"Close": partial_close})
+    monkeypatch.setattr(data_mod, "yf", fake_yf)
+    assert data_mod._download("Close", ["NVDA", "MSFT"], "2y") is None
+    loaded = data_mod.load_prices(["NVDA", "MSFT"], "2y")
+    assert not loaded.empty
+    assert not loaded[["NVDA", "MSFT"]].dropna().empty
