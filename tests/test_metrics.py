@@ -1,7 +1,9 @@
+import numpy as np
 import pandas as pd
 import pytest
 from engine.metrics import (
     concentration,
+    portfolio_returns,
     volatility,
     max_drawdown,
     correlation,
@@ -73,3 +75,45 @@ def test_stress_scenario():
     w = pd.Series([0.5, 0.5], index=["NVDA", "GLD"])
     shocks = {"Big Tech": -0.20}
     assert stress(w, shocks) == pytest.approx(-0.10)
+
+
+def test_weekend_crypto_move_counts_per_calendar_day():
+    """Issue #63: a Sat/Sun crypto crash must not hide inside Monday's return.
+
+    Equity (NVDA) is NaN at the weekend in prices, as yfinance/CACHE store it.
+    Old code: dropna() left only Friday/Monday rows, so the 3-day crypto
+    decline Friday->Monday was reported as one "day". New code: every calendar
+    day is one observation.
+    """
+    dates = pd.date_range("2024-11-15", periods=8, freq="D")  # Fri..Fri
+    #            Fri     Sat     Sun     Mon     Tue     Wed     Thu     Fri
+    prices = pd.DataFrame({
+        "NVDA": [100.0, np.nan, np.nan, 100.0, 100.0, 100.0, 100.0, 100.0],
+        "ETH-USD": [100.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0],
+    }, index=dates)
+    w = pd.Series({"NVDA": 0.5, "ETH-USD": 0.5})
+    pr = portfolio_returns(prices, w)
+    # Daily calendar: the -50% Saturday crash shows up on Saturday and never
+    # folds into Monday; the first daily return is Sat's, not a 3-day move.
+    assert pr.index[0] == dates[1]
+    assert pr.iloc[0] == pytest.approx(-0.25)   # Sat: 0.5*0 + 0.5*(-0.5)
+    assert pr.iloc[1] == pytest.approx(0.0)     # Sun: no weekend move left
+    assert pr.iloc[2] == pytest.approx(0.0)     # Mon: crash already counted
+
+
+def test_worst_month_window_is_21_calendar_days_for_crypto_and_mixed():
+    """Issue #63: rolling(21) must span 21 calendar days, not 21 sessions."""
+    prices = pd.read_csv("data/prices.csv", index_col=0, parse_dates=True)
+    crypto = pd.Series({"BTC-USD": 0.5, "ETH-USD": 0.5})
+    mixed = pd.Series({"BTC-USD": 0.45, "ETH-USD": 0.45, "NVDA": 0.10})
+
+    pr_crypto = portfolio_returns(prices, crypto)
+    pr_mixed = portfolio_returns(prices, mixed)
+
+    # Both books now run on the same calendar: their 21-observation windows
+    # reach the same dates (21 calendar days apart), not 21 days for crypto
+    # vs ~31 calendar days for the mixed book (issue #63).
+    assert pr_crypto.index[20] - pr_crypto.index[0] == pd.Timedelta(days=20)
+    assert pr_mixed.index[20] - pr_mixed.index[0] == pd.Timedelta(days=20)
+    # From the first equity close onward the two books share index dates.
+    assert pr_crypto.index[1:].equals(pr_mixed.index[1:])

@@ -19,9 +19,28 @@ def concentration(w: pd.Series) -> dict:
     }
 
 
+def align_prices(prices: pd.DataFrame, w: pd.Series) -> pd.DataFrame:
+    """Reindex the weighted price columns onto one shared calendar.
+
+    Crypto tickers trade every day of the week while equities trade only on
+    business days, so ``prices`` holds gaps (NaN) for each asset on the other
+    market's off days. Dropping those rows (``dropna``) silently folds a
+    3-day crypto weekend move into a single "day" in a Monday return, and
+    makes a 21-observation rolling window span 21 calendar days for a pure
+    crypto book but ~31 calendar days for a mixed book (issue #63).
+
+    Forward-filling each column onto the union of dates keeps every calendar
+    day as one observation for every asset, so daily returns measure one
+    calendar day and a 21-observation window is always 21 calendar days.
+    Rows that only precede an asset's first known price are dropped.
+    """
+    cols = [c for c in w.index if c in prices.columns]
+    return prices[cols].ffill().dropna()
+
+
 def portfolio_returns(prices: pd.DataFrame, w: pd.Series) -> pd.Series:
-    r = prices[w.index].dropna().pct_change().dropna()
-    return r @ w  # assumes weights held constant each day
+    r = align_prices(prices, w).pct_change().dropna()
+    return r @ w.loc[r.columns]  # assumes weights held constant each day
 
 
 def volatility(pr: pd.Series) -> float:
@@ -34,7 +53,8 @@ def max_drawdown(pr: pd.Series) -> float:
 
 
 def correlation(prices: pd.DataFrame, tickers) -> pd.DataFrame:
-    return prices[list(tickers)].dropna().pct_change().dropna().corr()
+    cols = list(tickers)
+    return align_prices(prices, pd.Series(1.0, index=cols)).pct_change().dropna().corr()
 
 
 def high_pairs(corr: pd.DataFrame, threshold: float = 0.7) -> list[tuple]:
