@@ -1,10 +1,15 @@
 import numpy as np
 import pandas as pd
-from engine.universe import GROUPS
+from engine.universe import GROUPS, SECTORS
 
 
 def sector_exposure(w: pd.Series) -> pd.Series:
-    """Weight per broad group (Big Tech, Crypto, ...)."""
+    """Weight per economic industry/sector (Semiconductors, Software, etc.)."""
+    return w.groupby(w.index.map(lambda t: SECTORS.get(t, "Other"))).sum().sort_values(ascending=False)
+
+
+def group_exposure(w: pd.Series) -> pd.Series:
+    """Weight per broad thematic group (Big Tech, Crypto, ...)."""
     return w.groupby(w.index.map(lambda t: GROUPS.get(t, "Other"))).sum().sort_values(ascending=False)
 
 

@@ -7,6 +7,7 @@ from engine.metrics import (
     correlation,
     high_pairs,
     sector_exposure,
+    group_exposure,
 )
 from engine.score import risk_score
 from engine.stress import stress
@@ -61,11 +62,29 @@ def test_single_rule_adds_its_points():
     assert score == 20 and len(hits) == 1
 
 
-def test_sector_exposure_tech():
-    # Day 9 test from playbook: NVDA 50% + MSFT 50% gives Big Tech = 100%
+def test_group_exposure_tech():
+    # Thematic group: NVDA 50% + MSFT 50% gives Big Tech = 100%
     w = pd.Series([0.5, 0.5], index=["NVDA", "MSFT"])
-    exp = sector_exposure(w)
+    exp = group_exposure(w)
     assert exp.get("Big Tech", 0) == pytest.approx(1.0)
+
+
+def test_sector_exposure_industry_semiconductors():
+    # Economic sector: NVDA 50% + AMD 50% gives 100% Semiconductors (fixes #67)
+    w = pd.Series([0.5, 0.5], index=["NVDA", "AMD"])
+    exp = sector_exposure(w)
+    assert exp.get("Semiconductors", 0) == pytest.approx(1.0)
+
+
+def test_sector_exposure_diversified_tech():
+    # Economic sectors: NVDA 30% + MSFT 25% + AAPL 20% + AMZN 25% are in separate industries
+    w = pd.Series([0.30, 0.25, 0.20, 0.25], index=["NVDA", "MSFT", "AAPL", "AMZN"])
+    exp = sector_exposure(w)
+    assert exp.get("Semiconductors", 0) == pytest.approx(0.30)
+    assert exp.get("Software", 0) == pytest.approx(0.25)
+    assert exp.get("Consumer Technology", 0) == pytest.approx(0.20)
+    assert exp.get("E-Commerce & Cloud", 0) == pytest.approx(0.25)
+    assert float(exp.max()) <= 0.50  # Must not trigger single sector penalty
 
 
 def test_stress_scenario():
