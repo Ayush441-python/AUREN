@@ -744,8 +744,14 @@ with tab_whatif:
     sig = str(abs(hash(tuple(zip(weights.index, weights.round(4))))))
     base_b = pd.DataFrame({"ticker": list(weights.index),
                            "weight": list(weights.values * 100)})
-    wb_df = st.data_editor(base_b, num_rows="dynamic", hide_index=True,
-                           key=f"pfb_{sig}", column_config=PF_COLUMNS)
+    whatif_data_key = f"whatif_df_{sig}"
+    whatif_version_key = f"whatif_version_{sig}"
+    st.session_state.setdefault(whatif_data_key, base_b)
+    st.session_state.setdefault(whatif_version_key, 0)
+    wb_df = st.data_editor(st.session_state[whatif_data_key],
+                           num_rows="dynamic", hide_index=True,
+                           key=f"pfb_{sig}_{st.session_state[whatif_version_key]}",
+                           column_config=PF_COLUMNS)
     wb_df = wb_df.dropna(subset=["ticker", "weight"])
     tot_b = float(wb_df["weight"].sum())
     ok_b = abs(tot_b - 100) <= 0.01
@@ -756,8 +762,12 @@ with tab_whatif:
     with wb_col2:
         if not ok_b and tot_b > 0:
             if st.button("Normalize What-if to 100%"):
-                wb_df["weight"] = (wb_df["weight"] / tot_b * 100).round(1)
-                st.session_state[f"pfb_{sig}"] = wb_df.reset_index(drop=True)
+                # Keep data separate from the editor's read-only widget state.
+                # A new widget key also prevents old cell edits being replayed.
+                wb_df = wb_df.copy()
+                wb_df["weight"] = wb_df["weight"] / tot_b * 100
+                st.session_state[whatif_data_key] = wb_df.reset_index(drop=True)
+                st.session_state[whatif_version_key] += 1
                 st.rerun()
 
     if wb_df.empty or wb_df["ticker"].duplicated().any():
