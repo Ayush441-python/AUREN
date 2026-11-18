@@ -546,13 +546,14 @@ with tab_risk:
 
     section("Rebased price history", "All assets rebased to 100 at start of lookback. Gold line represents your portfolio.")
     norm = prices / prices.iloc[0] * 100
+    rebased_portfolio = norm[weights.index] @ weights
     fig = go.Figure()
     for i, col in enumerate(norm.columns):
         fig.add_trace(go.Scatter(
             x=norm.index, y=norm[col], name=col, mode="lines",
             line=dict(width=1.2, color=ASSET_GREYS[i % len(ASSET_GREYS)])))
     fig.add_trace(go.Scatter(
-        x=value.index, y=value.values * 100, name="Portfolio (Gold)", mode="lines",
+        x=rebased_portfolio.index, y=rebased_portfolio.values, name="Portfolio (Gold)", mode="lines",
         line=dict(width=3, color=GOLD)))
     style(fig, height=380)
     fig.update_layout(yaxis_title="Index (Base = 100)")
