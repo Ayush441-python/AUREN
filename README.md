@@ -136,6 +136,21 @@ pytest
 }
 ```
 
+### OpenBot Risk Sentinel CLI Client & Dashboard
+
+Query the Risk API and generate instant Bento terminal reports:
+
+```bash
+# Run benchmark demo across multiple multi-asset portfolios
+python scripts/openbot_risk_sentinel.py --demo
+
+# Analyze custom portfolio weights
+python scripts/openbot_risk_sentinel.py --weights "NVDA:40,MSFT:30,GOOGL:20,ETH-USD:10"
+
+# Output raw JSON or export report to file
+python scripts/openbot_risk_sentinel.py --weights "COST:50,WMT:50" --export risk_report.json
+```
+
 ---
 
 ## Disclaimer
