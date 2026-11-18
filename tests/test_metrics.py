@@ -2,6 +2,7 @@ import pandas as pd
 import pytest
 from engine.metrics import (
     concentration,
+    portfolio_returns,
     volatility,
     max_drawdown,
     correlation,
@@ -73,3 +74,50 @@ def test_stress_scenario():
     w = pd.Series([0.5, 0.5], index=["NVDA", "GLD"])
     shocks = {"Big Tech": -0.20}
     assert stress(w, shocks) == pytest.approx(-0.10)
+
+
+def test_drawdown_exact_30_percent_boundary():
+    # Exactly -30.00% must NOT be evaluated as deeper than -30% (fixes #49)
+    # Tested on boundary closes: 70.01 (-29.99%), 70.00 (-30.00%), 69.99 (-30.01%)
+    w = pd.Series({"NVDA": 1.0})
+    conc = concentration(w)
+
+    # 1. 70.01 -> -29.99% drawdown -> score 50 (Medium), hits do not include drawdown
+    prices_7001 = pd.DataFrame(
+        {"NVDA": [99.0, 100.0] * 250 + [70.01]},
+        index=pd.bdate_range("2024-01-02", periods=501),
+    )
+    r_7001 = portfolio_returns(prices_7001, w)
+    mdd_7001 = max_drawdown(r_7001)
+    score_7001, level_7001, hits_7001 = risk_score(
+        conc, volatility(r_7001), mdd_7001, [], float(sector_exposure(w).max())
+    )
+    assert score_7001 == 50 and level_7001 == "Medium"
+    assert not any("Worst past fall" in why for _, why in hits_7001)
+
+    # 2. 70.00 -> exact -30.00% drawdown -> must remain score 50 (Medium), NOT High
+    prices_7000 = pd.DataFrame(
+        {"NVDA": [99.0, 100.0] * 250 + [70.00]},
+        index=pd.bdate_range("2024-01-02", periods=501),
+    )
+    r_7000 = portfolio_returns(prices_7000, w)
+    mdd_7000 = max_drawdown(r_7000)
+    score_7000, level_7000, hits_7000 = risk_score(
+        conc, volatility(r_7000), mdd_7000, [], float(sector_exposure(w).max())
+    )
+    assert score_7000 == 50 and level_7000 == "Medium"
+    assert not any("Worst past fall" in why for _, why in hits_7000)
+
+    # 3. 69.99 -> -30.01% drawdown -> deeper than -30%, adds 15 points -> score 65 (High)
+    prices_6999 = pd.DataFrame(
+        {"NVDA": [99.0, 100.0] * 250 + [69.99]},
+        index=pd.bdate_range("2024-01-02", periods=501),
+    )
+    r_6999 = portfolio_returns(prices_6999, w)
+    mdd_6999 = max_drawdown(r_6999)
+    score_6999, level_6999, hits_6999 = risk_score(
+        conc, volatility(r_6999), mdd_6999, [], float(sector_exposure(w).max())
+    )
+    assert score_6999 == 65 and level_6999 == "High"
+    assert any("Worst past fall" in why for _, why in hits_6999)
+
