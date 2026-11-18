@@ -216,6 +216,8 @@ st.session_state.setdefault("pf_v", 0)
 st.session_state.setdefault("size", 10000.0)
 st.session_state.setdefault("wallet_msg", None)
 st.session_state.setdefault("wallet_info", None)
+st.session_state.setdefault("preset_choice", "Balanced Tech & Crypto (Default)")
+st.session_state.setdefault("last_preset", "Balanced Tech & Crypto (Default)")
 
 
 def load_wallet():
@@ -243,6 +245,8 @@ def load_wallet():
     st.session_state.pf_df = df.reset_index(drop=True)
     st.session_state.pf_v += 1
     st.session_state.size = max(100.0, round(total, 2))
+    st.session_state.preset_choice = "Custom / Edited"
+    st.session_state.last_preset = "Custom / Edited"
     extra = f" {len(skipped)} other holding(s) skipped." if skipped else ""
     st.session_state.wallet_msg = (
         "success", f"Loaded {len(df)} supported holding(s), about ${total:,.0f}.{extra}")
@@ -262,13 +266,15 @@ with st.sidebar:
     selected_preset = st.selectbox(
         "Portfolio Presets",
         options=list(PRESETS.keys()),
-        index=1,
+        key="preset_choice",
         help="Quickly load pre-configured realistic portfolios."
     )
-    if selected_preset != "Custom / Edited" and PRESETS[selected_preset] is not None:
-        preset_df = pd.DataFrame(PRESETS[selected_preset])
-        # Only overwrite if current df differs from selected preset
-        if not st.session_state.pf_df.equals(preset_df):
+    if "last_preset" not in st.session_state:
+        st.session_state.last_preset = selected_preset
+    if selected_preset != st.session_state.last_preset:
+        st.session_state.last_preset = selected_preset
+        if selected_preset != "Custom / Edited" and PRESETS[selected_preset] is not None:
+            preset_df = pd.DataFrame(PRESETS[selected_preset])
             st.session_state.pf_df = preset_df
             st.session_state.pf_v += 1
             st.rerun()
