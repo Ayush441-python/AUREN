@@ -16,7 +16,7 @@ SYSTEM = (
     "End with: 'Analytics only, not investment advice. Past data does not predict the future.'"
 )
 
-NUM = re.compile(r"\d+(?:,\d{3})*(?:\.\d+)?")
+NUM = re.compile(r"\$?[+\-\u2212]?\$?\d+(?:,\d{3})*(?:\.\d+)?")
 
 
 def clean_output(text: str) -> str:
@@ -24,8 +24,9 @@ def clean_output(text: str) -> str:
     return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
 
 
-def ai_report(metrics: dict, base_url: str, api_key: str, model: str,
-              timeout: int = 120) -> str:
+def ai_report(
+    metrics: dict, base_url: str, api_key: str, model: str, timeout: int = 120
+) -> str:
     """Call any OpenAI-compatible chat endpoint (Groq, Ollama, OpenRouter, ...)."""
     headers = {"Content-Type": "application/json"}
     if api_key:
@@ -51,8 +52,12 @@ def ai_report(metrics: dict, base_url: str, api_key: str, model: str,
     effort = setting("LLM_REASONING_EFFORT")
     if effort:
         payload["reasoning_effort"] = effort
-    r = requests.post(base_url.rstrip("/") + "/chat/completions",
-                      json=payload, headers=headers, timeout=timeout)
+    r = requests.post(
+        base_url.rstrip("/") + "/chat/completions",
+        json=payload,
+        headers=headers,
+        timeout=timeout,
+    )
     if not r.ok:
         detail = r.text.strip()[:400]
         raise RuntimeError(f"LLM HTTP {r.status_code}: {detail or r.reason}")
@@ -64,7 +69,12 @@ def ai_report(metrics: dict, base_url: str, api_key: str, model: str,
 
 
 def _numbers(text: str) -> list[float]:
-    return [float(m.replace(",", "")) for m in NUM.findall(text)]
+    res = []
+    for m in NUM.findall(text):
+        cleaned = m.replace("\u2212", "-").replace("$", "").replace(",", "").strip()
+        if cleaned and cleaned not in ("+", "-", "−"):
+            res.append(float(cleaned))
+    return res
 
 
 def unverified_numbers(report: str, metrics: dict) -> list[float]:
@@ -77,7 +87,7 @@ def unverified_numbers(report: str, metrics: dict) -> list[float]:
         allowed.add(v * 100)
     bad = []
     for v in _numbers(report):
-        if v == int(v) and (v <= 10 or v == 100):
+        if v == int(v) and (0 <= v <= 10 or v == 100):
             continue
         if not any(abs(v - a) <= 0.51 for a in allowed):
             bad.append(v)
