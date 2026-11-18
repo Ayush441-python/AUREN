@@ -10,6 +10,7 @@ from engine.metrics import (
     correlation,
     high_pairs,
     sector_exposure,
+    industry_exposure,
 )
 from engine.score import risk_score
 from engine.stress import SCENARIOS, stress
@@ -68,9 +69,10 @@ def risk(p: Portfolio):
     corr = correlation(prices, w.index)
     pairs = high_pairs(corr)
     exposure = sector_exposure(w)
+    industry = industry_exposure(w)
 
     score, level, hits = risk_score(
-        conc, vol, mdd, pairs, float(exposure.max()) if not exposure.empty else 0.0
+        conc, vol, mdd, pairs, float(industry.max()) if not industry.empty else 0.0
     )
 
     return {
@@ -81,6 +83,7 @@ def risk(p: Portfolio):
         "volatility": vol,
         "max_drawdown": mdd,
         "sector_exposure": exposure.to_dict(),
+        "industry_exposure": industry.to_dict(),
         "correlated_pairs": pairs,
         "stress": {name: stress(w, s) for name, s in SCENARIOS.items()},
         "disclaimer": "Analytics only, not investment advice.",
