@@ -42,3 +42,15 @@ def high_pairs(corr: pd.DataFrame, threshold: float = 0.7) -> list[tuple]:
     return [(a, b, round(float(corr.loc[a, b]), 2))
             for i, a in enumerate(cols) for b in cols[i + 1:]
             if corr.loc[a, b] > threshold]
+
+
+def tail_risk(pr: pd.Series, alpha: float = 0.05) -> dict:
+    """Historical 1-day Value-at-Risk (VaR) and Conditional Value-at-Risk /
+    Expected Shortfall (CVaR) at confidence level `1 - alpha` (default 95%)."""
+    clean = pr.dropna()
+    if clean.empty:
+        return {"var_95": 0.0, "cvar_95": 0.0}
+    var_cut = float(np.quantile(clean, alpha))
+    tail = clean[clean <= var_cut]
+    cvar = float(tail.mean()) if not tail.empty else var_cut
+    return {"var_95": var_cut, "cvar_95": cvar}

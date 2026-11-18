@@ -9,7 +9,7 @@ from engine.data import load_prices, load_volumes
 from engine.env import load_env, setting
 from engine.liquidity import avg_daily_value, days_to_exit
 from engine.metrics import (concentration, portfolio_returns, volatility,
-                            max_drawdown, correlation, high_pairs, sector_exposure)
+                            max_drawdown, correlation, high_pairs, sector_exposure, tail_risk)
 from engine.report import ai_report, unverified_numbers
 from engine.score import risk_score, RULE_TABLE
 from engine.stress import SCENARIOS, stress, worst_periods
@@ -162,12 +162,13 @@ def analyze(w: pd.Series):
     pairs = high_pairs(corr)
     exposure = sector_exposure(w)
     periods = worst_periods(pr)
+    tail = tail_risk(pr)
     max_sector_val = float(exposure.max()) if not exposure.empty else 0.0
     score, level, hits = risk_score(c, vol, mdd, pairs, max_sector_val)
 
     return dict(prices=prices, c=c, pr=pr, vol=vol, mdd=mdd, value=value,
                 drawdown=drawdown, corr=corr, pairs=pairs, exposure=exposure,
-                score=score, level=level, hits=hits, periods=periods)
+                score=score, level=level, hits=hits, periods=periods, tail=tail)
 
 
 PF_COLUMNS = {
@@ -332,7 +333,7 @@ if A is None:
 prices, c, pr, vol, mdd = A["prices"], A["c"], A["pr"], A["vol"], A["mdd"]
 value, drawdown, corr, pairs = A["value"], A["drawdown"], A["corr"], A["pairs"]
 exposure, score, level, hits = A["exposure"], A["score"], A["level"], A["hits"]
-periods = A["periods"]
+periods, tail = A["periods"], A["tail"]
 
 # Live score card in sidebar
 badge_cls = "badge-low" if level == "Low" else "badge-med" if level == "Medium" else "badge-high"
@@ -543,6 +544,11 @@ with tab_risk:
     r4.markdown(card("Worst 21-day month", f"{periods['worst_month']:.1%}",
                      "Worst rolling 21 trading days"),
                 unsafe_allow_html=True)
+    st.markdown(callout(
+        f"<b>Tail-Risk (95% Historical VaR &amp; CVaR):</b> On the worst 5% of trading days, "
+        f"daily losses cross <b>{tail['var_95']:.2%}</b> (${abs(tail['var_95']) * size:,.0f}) "
+        f"and average <b>{tail['cvar_95']:.2%}</b> (${abs(tail['cvar_95']) * size:,.0f} Expected Shortfall).",
+        muted=True), unsafe_allow_html=True)
 
     section("Rebased price history", "All assets rebased to 100 at start of lookback. Gold line represents your portfolio.")
     norm = prices / prices.iloc[0] * 100
@@ -793,6 +799,7 @@ with tab_whatif:
                  f"{B['exposure'].idxmax()} · {B['exposure'].max():.1%}"),
                 ("Volatility (annual)", f"{A['vol']:.1%}", f"{B['vol']:.1%}"),
                 ("Worst drawdown", f"{A['mdd']:.1%}", f"{B['mdd']:.1%}"),
+                ("95% Daily CVaR (Tail loss)", f"{A['tail']['cvar_95']:.2%}", f"{B['tail']['cvar_95']:.2%}"),
                 ("Correlated pairs (>0.7)", str(len(A["pairs"])), str(len(B["pairs"]))),
             ]
             st.dataframe(pd.DataFrame(rows, columns=["Metric", "Current", "What-if"]),
@@ -847,6 +854,8 @@ with tab_ai:
         "max_drawdown": round(mdd, 4),
         "worst_day": round(periods["worst_day"], 4),
         "worst_month": round(periods["worst_month"], 4),
+        "var_95_daily": round(tail["var_95"], 4),
+        "cvar_95_daily": round(tail["cvar_95"], 4),
         "sector_exposure": {k: round(float(v), 4) for k, v in exposure.items()},
         "correlated_pairs_above_0.7": [[a, b, v] for a, b, v in pairs],
         "scenario_stress_shocks": {k: round(v, 4) for k, v in stress_dict.items()},

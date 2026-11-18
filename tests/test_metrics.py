@@ -73,3 +73,19 @@ def test_stress_scenario():
     w = pd.Series([0.5, 0.5], index=["NVDA", "GLD"])
     shocks = {"Big Tech": -0.20}
     assert stress(w, shocks) == pytest.approx(-0.10)
+
+
+def test_tail_risk_var_and_cvar_known_distribution():
+    from engine.metrics import tail_risk
+    # 20 daily returns: -10%, -8%, and eighteen +1% days.
+    # At alpha=0.05, 5th percentile cutoff sits between -10% and -8%, and worst tail includes -10%.
+    pr = pd.Series([-0.10, -0.08] + [0.01] * 18)
+    tr = tail_risk(pr, alpha=0.05)
+    assert tr["cvar_95"] <= tr["var_95"]
+    assert tr["cvar_95"] == pytest.approx(-0.10)
+    assert tr["var_95"] < -0.07
+
+
+def test_tail_risk_empty_series_safe_zero():
+    from engine.metrics import tail_risk
+    assert tail_risk(pd.Series([], dtype=float)) == {"var_95": 0.0, "cvar_95": 0.0}
