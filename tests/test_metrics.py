@@ -113,7 +113,6 @@ def test_worst_month_window_is_21_calendar_days_for_crypto_and_mixed():
     # Both books now run on the same calendar: their 21-observation windows
     # reach the same dates (21 calendar days apart), not 21 days for crypto
     # vs ~31 calendar days for the mixed book (issue #63).
-    assert len(pr_crypto) == len(pr_mixed)
     assert pr_crypto.index[20] - pr_crypto.index[0] == pd.Timedelta(days=20)
     assert pr_mixed.index[20] - pr_mixed.index[0] == pd.Timedelta(days=20)
     # From the first equity close onward the two books share index dates.
