@@ -5,14 +5,15 @@ def avg_daily_value(prices: pd.DataFrame, volumes: pd.DataFrame,
                     window: int = 30) -> pd.Series:
     """Average daily traded value in USD per ticker over the last `window` days.
     Stocks and ETFs: price x share volume. Crypto (-USD): Yahoo already reports
-    volume in dollars, so it is used as is."""
+    volume in dollars, so it is used as is, aligned to `prices.index`."""
     out = {}
     for t in prices.columns:
         if t not in volumes.columns:
             continue
-        vol = volumes[t].dropna()
-        traded = vol if t.endswith("-USD") else (prices[t] * vol).dropna()
-        out[t] = float(traded.tail(window).mean())
+        aligned_prices = prices[t].dropna()
+        vol = volumes[t].reindex(aligned_prices.index).dropna()
+        traded = vol if t.endswith("-USD") else (aligned_prices.reindex(vol.index) * vol).dropna()
+        out[t] = float(traded.tail(window).mean()) if not traded.empty else float("nan")
     return pd.Series(out, dtype=float)
 
 

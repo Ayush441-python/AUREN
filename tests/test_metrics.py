@@ -73,3 +73,35 @@ def test_stress_scenario():
     w = pd.Series([0.5, 0.5], index=["NVDA", "GLD"])
     shocks = {"Big Tech": -0.20}
     assert stress(w, shocks) == pytest.approx(-0.10)
+
+
+def test_avg_daily_value_aligns_crypto_to_prices_index():
+    from engine.liquidity import avg_daily_value
+    all_dates = pd.date_range("2026-11-09", periods=7, freq="D")  # Mon..Sun
+    trading_dates = all_dates[:5]  # Mon..Fri only in aligned prices
+    prices = pd.DataFrame(
+        {"NVDA": [100.0] * 5, "ETH-USD": [3000.0] * 5},
+        index=trading_dates,
+    )
+    volumes = pd.DataFrame(
+        {
+            "NVDA": [10.0, 10.0, 10.0, 10.0, 10.0, float("nan"), float("nan")],
+            "ETH-USD": [1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 100.0, 100.0],
+        },
+        index=all_dates,
+    )
+    adv = avg_daily_value(prices, volumes, window=5)
+    assert adv["NVDA"] == pytest.approx(1000.0)
+    assert adv["ETH-USD"] == pytest.approx(1000.0)
+
+
+def test_avg_daily_value_prevents_crypto_lookahead_on_sliced_prices():
+    from engine.liquidity import avg_daily_value
+    dates = pd.date_range("2026-10-01", periods=10, freq="D")
+    prices_full = pd.DataFrame({"ETH-USD": [2500.0] * 10}, index=dates)
+    volumes_full = pd.DataFrame(
+        {"ETH-USD": [500.0] * 5 + [999999.0] * 5},
+        index=dates,
+    )
+    adv_historical = avg_daily_value(prices_full.iloc[:5], volumes_full, window=5)
+    assert adv_historical["ETH-USD"] == pytest.approx(500.0)

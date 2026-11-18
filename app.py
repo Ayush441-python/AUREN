@@ -658,8 +658,9 @@ with tab_liq:
     dte = days_to_exit(pos_values, adv, participation=0.10)
 
     lq1, lq2, lq3 = st.columns(3)
-    max_dte_ticker = dte.idxmax() if not dte.empty else "N/A"
-    max_dte_val = dte.max() if not dte.empty else 0.0
+    valid_dte = dte.dropna()
+    max_dte_ticker = valid_dte.idxmax() if not valid_dte.empty else "N/A"
+    max_dte_val = float(valid_dte.max()) if not valid_dte.empty else 0.0
     lq1.markdown(card("Max days to exit", f"{max_dte_val:.2f} days", f"Holding: {max_dte_ticker}"), unsafe_allow_html=True)
     lq2.markdown(card("Participation rate", "10%", "Standard conservative liquidation cap"), unsafe_allow_html=True)
     lq3.markdown(card("30D average volume", "Active", "Computed over last 30 trading sessions", gold=True), unsafe_allow_html=True)
@@ -675,7 +676,7 @@ with tab_liq:
             "30D Daily Traded ($)": v_daily,
             "10% Cap ($/day)": v_daily * 0.10 if pd.notna(v_daily) else float("nan"),
             "Days to Exit": days,
-            "Liquidity Status": "Instant (<0.1d)" if days < 0.1 else "Liquid (<1d)" if days < 1.0 else "Illiquid (1d+)"
+            "Liquidity Status": "Unavailable" if pd.isna(days) else "Instant (<0.1d)" if days < 0.1 else "Liquid (<1d)" if days < 1.0 else "Illiquid (1d+)"
         })
     liq_df = pd.DataFrame(liq_rows)
 
