@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -48,11 +49,14 @@ def risk(p: Portfolio):
         )
 
     w = pd.Series(p.weights, dtype=float)
-    if (w <= 0).any() or w.sum() <= 0:
+    if not np.isfinite(w.to_numpy(dtype=float)).all() or (w <= 0).any():
         raise HTTPException(
-            status_code=400, detail="Weights must be positive numbers summing to > 0"
+            status_code=400, detail="Weights must be finite positive numbers"
         )
-    w = w / w.sum()
+
+    # Divide before summation to avoid float64 overflow for valid large weights.
+    scaled = w / w.max()
+    w = scaled / scaled.sum()
 
     prices = load_prices(list(w.index))
     if prices.empty:
