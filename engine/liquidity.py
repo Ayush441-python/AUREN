@@ -4,7 +4,7 @@ import pandas as pd
 def avg_daily_value(prices: pd.DataFrame, volumes: pd.DataFrame,
                     window: int = 30) -> pd.Series:
     """Average daily traded value in USD per ticker over the last `window` days.
-    Stocks and ETFs: price x share volume. Crypto (-USD): Yahoo already reports
+    Stocks and ETFs: unadjusted close price x share volume. Crypto (-USD): Yahoo already reports
     volume in dollars, so it is used as is."""
     out = {}
     for t in prices.columns:
