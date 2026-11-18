@@ -73,3 +73,23 @@ def test_stress_scenario():
     w = pd.Series([0.5, 0.5], index=["NVDA", "GLD"])
     shocks = {"Big Tech": -0.20}
     assert stress(w, shocks) == pytest.approx(-0.10)
+
+
+def test_stress_table_percentage_scaling():
+    # Fixes #50: Impact % in preset shock table must be scaled to percentage points (e.g. -20.0%, +3.0%)
+    from engine.stress import SCENARIOS
+
+    # Case 1: NVDA 100% in "Big Tech falls 20%"
+    w_nvda = pd.Series({"NVDA": 1.0})
+    impact_nvda = stress(w_nvda, SCENARIOS["Big Tech falls 20%"])
+    table_pct_nvda = impact_nvda * 100
+    assert table_pct_nvda == pytest.approx(-20.0)
+    assert f"{table_pct_nvda:+.1f}%" == "-20.0%"
+
+    # Case 2: GLD 100% in "Broad selloff" (+3% gold gain)
+    w_gld = pd.Series({"GLD": 1.0})
+    impact_gld = stress(w_gld, SCENARIOS["Broad selloff"])
+    table_pct_gld = impact_gld * 100
+    assert table_pct_gld == pytest.approx(3.0)
+    assert f"{table_pct_gld:+.1f}%" == "+3.0%"
+
