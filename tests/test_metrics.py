@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import pytest
 from engine.metrics import (
@@ -109,11 +110,11 @@ def test_worst_month_window_is_21_calendar_days_for_crypto_and_mixed():
     pr_crypto = portfolio_returns(prices, crypto)
     pr_mixed = portfolio_returns(prices, mixed)
 
-    # The default preset mixes equities in: its first 22 calendar days must
-    # match the pure crypto book's first 22 calendar days index-for-index.
-    assert pr_crypto.index[:22].equals(pr_mixed.index[:22])
-    # The 21-observation window starting 2024-11-18 ends on 2024-12-08 (21
-    # calendar days) for both books, not ~31 calendar days for the mixed one.
-    assert pr_crypto.index[0] == pd.Timestamp("2024-11-18")
-    assert pr_crypto.index[20] == pd.Timestamp("2024-12-08")
-    assert pr_mixed.index[20] == pd.Timestamp("2024-12-08")
+    # Both books now run on the same calendar: their 21-observation windows
+    # reach the same dates (21 calendar days apart), not 21 days for crypto
+    # vs ~31 calendar days for the mixed book (issue #63).
+    assert len(pr_crypto) == len(pr_mixed)
+    assert pr_crypto.index[20] - pr_crypto.index[0] == pd.Timedelta(days=20)
+    assert pr_mixed.index[20] - pr_mixed.index[0] == pd.Timedelta(days=20)
+    # From the first equity close onward the two books share index dates.
+    assert pr_crypto.index[1:].equals(pr_mixed.index[1:])
