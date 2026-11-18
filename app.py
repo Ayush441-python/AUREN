@@ -288,7 +288,11 @@ with st.sidebar:
     with t_col2:
         if not ok and total > 0:
             if st.button("Normalize to 100%", help="Rescales weights to sum to 100% proportionally"):
-                pf["weight"] = (pf["weight"] / total * 100).round(1)
+                weights = (pf["weight"] / total * 100).round(1)
+                diff = round(100.0 - float(weights.sum()), 1)
+                if diff != 0 and len(weights) > 0:
+                    weights.iloc[0] = round(weights.iloc[0] + diff, 1)
+                pf["weight"] = weights
                 st.session_state.pf_df = pf.reset_index(drop=True)
                 st.session_state.pf_v += 1
                 st.rerun()
@@ -756,7 +760,11 @@ with tab_whatif:
     with wb_col2:
         if not ok_b and tot_b > 0:
             if st.button("Normalize What-if to 100%"):
-                wb_df["weight"] = (wb_df["weight"] / tot_b * 100).round(1)
+                weights_b = (wb_df["weight"] / tot_b * 100).round(1)
+                diff_b = round(100.0 - float(weights_b.sum()), 1)
+                if diff_b != 0 and len(weights_b) > 0:
+                    weights_b.iloc[0] = round(weights_b.iloc[0] + diff_b, 1)
+                wb_df["weight"] = weights_b
                 st.session_state[f"pfb_{sig}"] = wb_df.reset_index(drop=True)
                 st.rerun()
 
