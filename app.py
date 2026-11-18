@@ -242,7 +242,7 @@ def load_wallet():
         return
     st.session_state.pf_df = df.reset_index(drop=True)
     st.session_state.pf_v += 1
-    st.session_state.size = max(100.0, round(total, 2))
+    st.session_state.size = max(0.01, round(total, 2))
     extra = f" {len(skipped)} other holding(s) skipped." if skipped else ""
     st.session_state.wallet_msg = (
         "success", f"Loaded {len(df)} supported holding(s), about ${total:,.0f}.{extra}")
@@ -293,7 +293,7 @@ with st.sidebar:
                 st.session_state.pf_v += 1
                 st.rerun()
 
-    st.number_input("Portfolio size ($)", min_value=100.0, step=500.0, key="size")
+    st.number_input("Portfolio size ($)", min_value=0.01, step=500.0, key="size")
     st.caption("Weights must add up to 100%.")
 
     with st.expander("Base wallet (read-only)"):
