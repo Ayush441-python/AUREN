@@ -150,6 +150,9 @@ def get_volumes(tickers: tuple) -> pd.DataFrame:
 
 def analyze(w: pd.Series):
     """Run the full AUREN engine on one portfolio. Returns None if data is too short."""
+    w = w[w > 0]
+    if w.empty:
+        return None
     prices = get_prices(tuple(sorted(w.index))).dropna()
     if len(prices) < 30:
         return None
@@ -321,6 +324,7 @@ if not ok:
     st.stop()
 
 weights = pd.Series(pf["weight"].values / 100, index=pf["ticker"].values)
+weights = weights[weights > 0]
 n = len(weights)
 size = float(st.session_state.size)
 
@@ -766,6 +770,7 @@ with tab_whatif:
         st.warning("What-if weights must add up to 100%.")
     else:
         wb = pd.Series(wb_df["weight"].values / 100, index=wb_df["ticker"].values)
+        wb = wb[wb > 0]
         B = analyze(wb)
         if B is None:
             st.error("Not enough price history for the what-if tickers.")
