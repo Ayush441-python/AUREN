@@ -42,3 +42,17 @@ def high_pairs(corr: pd.DataFrame, threshold: float = 0.7) -> list[tuple]:
     return [(a, b, round(float(corr.loc[a, b]), 2))
             for i, a in enumerate(cols) for b in cols[i + 1:]
             if corr.loc[a, b] > threshold]
+
+
+def risk_contributions(prices: pd.DataFrame, w: pd.Series) -> dict:
+    """Percentage of total portfolio volatility contributed by each holding (Euler decomposition)."""
+    r = prices[w.index].dropna().pct_change().dropna()
+    if r.empty or len(r) < 2:
+        return {t: round(float(w[t]), 4) for t in w.index}
+    cov = r.cov() * 252
+    port_var = float(w.T @ cov @ w)
+    if port_var <= 0:
+        return {t: 0.0 for t in w.index}
+    mctr_cov = cov @ w
+    rc_pct = (w * mctr_cov) / port_var
+    return {t: round(float(rc_pct[t]), 4) for t in w.index}

@@ -7,6 +7,7 @@ from engine.metrics import (
     correlation,
     high_pairs,
     sector_exposure,
+    risk_contributions,
 )
 from engine.score import risk_score
 from engine.stress import stress
@@ -73,3 +74,42 @@ def test_stress_scenario():
     w = pd.Series([0.5, 0.5], index=["NVDA", "GLD"])
     shocks = {"Big Tech": -0.20}
     assert stress(w, shocks) == pytest.approx(-0.10)
+
+
+def test_risk_contributions_single_asset():
+    # A single asset portfolio must contribute 100% of risk
+    prices = pd.DataFrame({"A": [100.0, 102.0, 101.0, 104.0, 103.0]})
+    w = pd.Series({"A": 1.0})
+    rc = risk_contributions(prices, w)
+    assert rc["A"] == pytest.approx(1.0)
+
+
+def test_risk_contributions_euler_sum_to_one():
+    # By Euler's theorem, sum of percentage risk contributions identically equals 1.0
+    prices = pd.DataFrame(
+        {
+            "A": [100, 101, 103, 102, 105, 104, 108, 107],
+            "B": [50, 48, 52, 49, 53, 51, 55, 54],
+            "C": [10, 12, 11, 13, 12, 14, 13, 15],
+        }
+    )
+    w = pd.Series({"A": 0.5, "B": 0.3, "C": 0.2})
+    rc = risk_contributions(prices, w)
+    assert sum(rc.values()) == pytest.approx(1.0, abs=1e-3)
+
+
+def test_risk_contributions_volatile_asset_has_higher_risk_share():
+    # Asset B is much more volatile than Asset A; with equal capital weight (50/50),
+    # B must account for a significantly higher share of total portfolio volatility.
+    prices = pd.DataFrame(
+        {
+            "A": [100.0, 100.5, 101.0, 100.8, 101.2, 101.5],  # Low volatility
+            "B": [100.0, 105.0,  95.0, 110.0,  90.0, 115.0],  # High volatility
+        }
+    )
+    w = pd.Series({"A": 0.5, "B": 0.5})
+    rc = risk_contributions(prices, w)
+    assert rc["B"] > rc["A"]
+    assert rc["B"] > 0.50
+    assert sum(rc.values()) == pytest.approx(1.0, abs=1e-3)
+
