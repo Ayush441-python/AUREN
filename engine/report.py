@@ -72,9 +72,31 @@ def unverified_numbers(report: str, metrics: dict) -> list[float]:
     Fractions count as matching their percentage (0.34 matches 34).
     Small whole numbers (1-10) and 100 are ignored."""
     allowed = set()
-    for v in _numbers(json.dumps(metrics, default=str)):
-        allowed.add(v)
-        allowed.add(v * 100)
+    portfolio_val = metrics.get("portfolio_value_usd", 0.0)
+
+    def _collect(obj):
+        if isinstance(obj, dict):
+            # Inspect dictionary values ONLY, avoiding metric keys like 'correlated_pairs_above_0.7'
+            for v in obj.values():
+                _collect(v)
+        elif isinstance(obj, (list, tuple, set)):
+            for v in obj:
+                _collect(v)
+        elif isinstance(obj, str):
+            # Pre-formatted percentage/count strings like "Largest holding is 40% (over 30%)"
+            for v in _numbers(obj):
+                allowed.add(v)
+        elif isinstance(obj, (int, float)):
+            val = float(obj)
+            allowed.add(val)
+            # Only ratios/fractions representing shares or percentages (in [-1.0, 1.0]) are scaled by 100
+            if 0.0 < abs(val) <= 1.0:
+                allowed.add(round(val * 100, 4))
+                allowed.add(round(abs(val) * 100, 4))
+                if portfolio_val > 0:
+                    allowed.add(round(abs(val) * portfolio_val, 2))
+
+    _collect(metrics)
     bad = []
     for v in _numbers(report):
         if v == int(v) and (v <= 10 or v == 100):
