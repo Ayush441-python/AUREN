@@ -1,4 +1,5 @@
 import json
+from itertools import combinations
 
 import pandas as pd
 import plotly.express as px
@@ -701,9 +702,12 @@ with tab_liq:
 # ============================================================== 7. Correlation
 with tab_corr:
     cols = list(corr.columns)
-    all_pairs = [(a, b, float(corr.loc[a, b]))
-                 for i, a in enumerate(cols) for b in cols[i + 1:]]
-    top = max(all_pairs, key=lambda p: p[2]) if all_pairs else None
+    measured_pairs = []
+    for a, b in combinations(cols, 2):
+        coefficient = corr.loc[a, b]
+        if pd.notna(coefficient):
+            measured_pairs.append((a, b, float(coefficient)))
+    top = max(measured_pairs, key=lambda p: p[2], default=None)
 
     q1, q2 = st.columns(2)
     if top:
@@ -711,9 +715,10 @@ with tab_corr:
                          f"Correlation {top[2]:.2f}"), unsafe_allow_html=True)
     else:
         q1.markdown(card("Most correlated pair", "–",
-                         "Add at least 2 holdings to evaluate"), unsafe_allow_html=True)
+                         "Add at least 2 holdings to evaluate" if len(cols) < 2
+                         else "No pair has a defined correlation"), unsafe_allow_html=True)
     q2.markdown(card("Pairs above 0.7", f"{len(pairs)}",
-                     f"Out of {len(all_pairs)} pairs total", gold=True),
+                     f"Out of {len(measured_pairs)} measured pairs", gold=True),
                 unsafe_allow_html=True)
 
     section("Correlation heatmap",
@@ -732,8 +737,8 @@ with tab_corr:
         for a, b, v in pairs:
             st.markdown(callout(f"<b>{a}</b> and <b>{b}</b> exhibit high correlation (r = {v:.2f}). "
                                 f"They offer limited diversification benefits and may drop together."), unsafe_allow_html=True)
-    else:
-        st.markdown(callout("✓ Low co-movement: No pair exceeds the 0.70 correlation threshold in this portfolio.",
+    elif measured_pairs:
+        st.markdown(callout("✓ Low co-movement: No measured pair exceeds the 0.70 correlation threshold.",
                             muted=True), unsafe_allow_html=True)
     st.caption("Based on 2-year daily percentage returns. Past correlations are non-stationary.")
 
