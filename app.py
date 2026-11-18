@@ -398,7 +398,7 @@ with tab_pf:
             sort=False, marker=dict(colors=donut_colors, line=dict(color=BG, width=2)),
             textinfo="label+percent", textposition="outside",
             textfont=dict(color=TEXT),
-            hovertemplate="%{label}: %{percent} ($%{value:,.0f})<extra></extra>",
+            hovertemplate="%{label}: %{percent} ($%{customdata:,.0f})<extra></extra>",
             customdata=list(weights.values * size)))
         fig.add_annotation(text=f"${size:,.0f}", showarrow=False,
                            font=dict(size=18, color=TEXT, family="JetBrains Mono"))
