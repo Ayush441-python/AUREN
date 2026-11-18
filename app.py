@@ -150,7 +150,7 @@ def get_volumes(tickers: tuple) -> pd.DataFrame:
 
 def analyze(w: pd.Series):
     """Run the full AUREN engine on one portfolio. Returns None if data is too short."""
-    prices = get_prices(tuple(sorted(w.index))).dropna()
+    prices = get_prices(tuple(sorted(w.index))).ffill().dropna()
     if len(prices) < 30:
         return None
     c = concentration(w)

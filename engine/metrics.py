@@ -20,7 +20,7 @@ def concentration(w: pd.Series) -> dict:
 
 
 def portfolio_returns(prices: pd.DataFrame, w: pd.Series) -> pd.Series:
-    r = prices[w.index].dropna().pct_change().dropna()
+    r = prices[w.index].ffill().dropna().pct_change().dropna()
     return r @ w  # assumes weights held constant each day
 
 
