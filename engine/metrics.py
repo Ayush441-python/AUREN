@@ -37,8 +37,21 @@ def correlation(prices: pd.DataFrame, tickers) -> pd.DataFrame:
     return prices[list(tickers)].dropna().pct_change().dropna().corr()
 
 
-def high_pairs(corr: pd.DataFrame, threshold: float = 0.7) -> list[tuple]:
+def high_pairs(
+    corr: pd.DataFrame,
+    threshold: float = 0.7,
+    round_digits: int | None = None,
+) -> list[tuple]:
     cols = list(corr.columns)
-    return [(a, b, round(float(corr.loc[a, b]), 2))
-            for i, a in enumerate(cols) for b in cols[i + 1:]
-            if corr.loc[a, b] > threshold]
+    return [
+        (
+            a,
+            b,
+            round(float(corr.loc[a, b]), round_digits)
+            if round_digits is not None
+            else float(corr.loc[a, b]),
+        )
+        for i, a in enumerate(cols)
+        for b in cols[i + 1 :]
+        if corr.loc[a, b] > threshold
+    ]

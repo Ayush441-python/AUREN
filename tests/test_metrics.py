@@ -42,6 +42,50 @@ def test_high_pairs_finds_the_pair():
     assert high_pairs(corr) == [("A", "B", 1.0)]
 
 
+def test_high_pairs_strict_boundary_700():
+    # Exactly r=0.700 must NOT qualify under strict > 0.70 semantics
+    c = pd.DataFrame(
+        [[1.0, 0.700, 0.700], [0.700, 1.0, 0.0], [0.700, 0.0, 1.0]],
+        index=list("ABC"),
+        columns=list("ABC"),
+    )
+    pairs = high_pairs(c)
+    assert pairs == []
+    score, level, hits = risk_score(
+        {"top_weight": 0.2, "effective_assets": 5}, 0.1, -0.05, pairs, 0.2
+    )
+    assert score == 0
+    assert hits == []
+
+
+def test_high_pairs_retains_precision_704():
+    # r=0.704 strictly qualifies (> 0.70) and must retain full precision
+    # so that the 15 risk points added are auditable from the returned pair data
+    c = pd.DataFrame(
+        [[1.0, 0.704, 0.704], [0.704, 1.0, 0.0], [0.704, 0.0, 1.0]],
+        index=list("ABC"),
+        columns=list("ABC"),
+    )
+    pairs = high_pairs(c)
+    assert pairs == [("A", "B", 0.704), ("A", "C", 0.704)]
+    assert all(val > 0.70 for _, _, val in pairs)
+    score, level, hits = risk_score(
+        {"top_weight": 0.2, "effective_assets": 5}, 0.1, -0.05, pairs, 0.2
+    )
+    assert score == 15
+    assert hits == [(15, "2 pairs of assets move closely together")]
+
+
+def test_high_pairs_optional_round_digits():
+    c = pd.DataFrame(
+        [[1.0, 0.704], [0.704, 1.0]],
+        index=list("AB"),
+        columns=list("AB"),
+    )
+    assert high_pairs(c, round_digits=2) == [("A", "B", 0.7)]
+
+
+
 def test_safe_portfolio_scores_zero():
     conc = {"top_weight": 0.10, "effective_assets": 10}
     score, level, hits = risk_score(conc, 0.10, -0.05, [], 0.20)
