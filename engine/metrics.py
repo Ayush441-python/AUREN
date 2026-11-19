@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+
 from engine.universe import GROUPS
 
 
@@ -12,8 +13,8 @@ def concentration(w: pd.Series) -> dict:
     hhi = float((w ** 2).sum())  # 1.0 = everything in one asset
     return {
         "top_asset": w.idxmax(),
-        "top_weight": float(w.max()),
-        "top3_weight": float(w.nlargest(3).sum()),
+        "top_weight": round(float(w.max()), 7),
+        "top3_weight": round(float(w.nlargest(3).sum()), 7),
         "hhi": hhi,
         "effective_assets": 1 / hhi,  # "you really own this many assets"
     }
