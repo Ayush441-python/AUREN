@@ -1,19 +1,20 @@
+import numpy as np
 import pandas as pd
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
 from engine.data import load_prices
 from engine.metrics import (
     concentration,
-    portfolio_returns,
-    volatility,
-    max_drawdown,
     correlation,
     high_pairs,
+    max_drawdown,
+    portfolio_returns,
     sector_exposure,
+    volatility,
 )
 from engine.score import risk_score
 from engine.stress import SCENARIOS, stress
 from engine.universe import SECTORS
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 
 app = FastAPI(
     title="AUREN Risk API",
@@ -48,9 +49,10 @@ def risk(p: Portfolio):
         )
 
     w = pd.Series(p.weights, dtype=float)
-    if (w <= 0).any() or w.sum() <= 0:
+    if not np.isfinite(w).all() or (w <= 0).any() or not np.isfinite(w.sum()) or w.sum() <= 0:
         raise HTTPException(
-            status_code=400, detail="Weights must be positive numbers summing to > 0"
+            status_code=400,
+            detail="Weights must be finite positive numbers summing to > 0",
         )
     w = w / w.sum()
 
