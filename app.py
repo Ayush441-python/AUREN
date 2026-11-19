@@ -12,7 +12,7 @@ from engine.metrics import (concentration, portfolio_returns, volatility,
                             max_drawdown, correlation, high_pairs, sector_exposure)
 from engine.report import ai_report, unverified_numbers
 from engine.score import risk_score, RULE_TABLE
-from engine.stress import SCENARIOS, stress, worst_periods
+from engine.stress import SCENARIOS, custom_shock_feedback, stress, worst_periods
 from engine.universe import GROUPS, SECTORS
 from engine.wallet import (BASE_RPC, is_valid_address, wallet_holdings,
                            holdings_to_portfolio)
@@ -634,16 +634,8 @@ with tab_stress:
             color="danger" if custom_impact < 0 else "success" if custom_impact > 0 else ""
         ), unsafe_allow_html=True)
     with res_col2:
-        if custom_impact < 0:
-            st.markdown(callout(
-                f"Under this custom shock, your portfolio declines by <b>{custom_impact:.1%}</b> "
-                f"(a drop of <b>${abs(custom_dollar):,.0f}</b>).", danger=True), unsafe_allow_html=True)
-        elif custom_impact > 0:
-            st.markdown(callout(
-                f"Under this custom shock, your portfolio gains <b>{custom_impact:+.1%}</b> "
-                f"(a rise of <b>${custom_dollar:,.0f}</b>)."), unsafe_allow_html=True)
-        else:
-            st.markdown(callout("Move the sliders to see hypothetical stress test impact.", muted=True), unsafe_allow_html=True)
+        msg, opts = custom_shock_feedback(custom_impact, custom_dollar, custom_shocks)
+        st.markdown(callout(msg, **opts), unsafe_allow_html=True)
 
     st.caption("Stress tests assume static portfolio weights and instantaneous sector shocks. Not investment advice.")
 
