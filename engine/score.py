@@ -1,3 +1,8 @@
+# Documented strict-boundary tolerance for floating-point comparisons
+# to prevent boundary imprecision (e.g. 0.5000000000000001) from triggering > 50%.
+SECTOR_THRESHOLD_TOLERANCE = 1e-7
+TOLERANCE = SECTOR_THRESHOLD_TOLERANCE
+
 RULE_TABLE = [
     (20, "Largest holding is over 30%"),
     (15, "Effective number of assets is below 4"),
@@ -20,7 +25,7 @@ def risk_score(conc: dict, vol: float, mdd: float, pairs: list, sector_max: floa
          f"Worst past fall was {mdd:.0%} (deeper than -30%)"),
         (len(pairs) >= 2, 15,
          f"{len(pairs)} pairs of assets move closely together"),
-        (sector_max > 0.50, 15,
+        (sector_max > 0.50 + SECTOR_THRESHOLD_TOLERANCE, 15,
          f"{sector_max:.0%} sits in one sector"),
     ]
     hits = [(pts, why) for hit, pts, why in rules if hit]
