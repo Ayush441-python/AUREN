@@ -8,7 +8,7 @@ import streamlit as st
 from engine.data import load_prices, load_volumes
 from engine.env import load_env, setting
 from engine.liquidity import avg_daily_value, days_to_exit
-from engine.metrics import (concentration, portfolio_returns, volatility,
+from engine.metrics import (concentration, format_weight_term, portfolio_returns, volatility,
                             max_drawdown, correlation, high_pairs, sector_exposure)
 from engine.report import ai_report, unverified_numbers
 from engine.score import risk_score, RULE_TABLE
@@ -490,10 +490,13 @@ with tab_conc:
         unsafe_allow_html=True)
 
     with st.expander("Mathematical derivation (HHI & Effective Assets)"):
-        terms = " + ".join(f"{w:.2f}²" for w in weights.sort_values(ascending=False))
+        formatted_terms = [format_weight_term(w) for w in weights.sort_values(ascending=False)]
+        terms = " + ".join(f"{t}²" for t in formatted_terms)
+        displayed_sum = sum(float(t) ** 2 for t in formatted_terms)
+        eq_sign = "=" if round(displayed_sum, 4) == round(c["hhi"], 4) else "\\approx"
         st.markdown(
             f"**Herfindahl-Hirschman Index (HHI):**\n"
-            f"$$\\text{{HHI}} = \\sum w_i^2 = {terms} = \\mathbf{{{c['hhi']:.4f}}}$$\n\n"
+            f"$$\\text{{HHI}} = \\sum w_i^2 = {terms} {eq_sign} \\mathbf{{{c['hhi']:.4f}}}$$\n\n"
             f"**Effective Number of Assets ($N_{{\\text{{eff}}}}$):**\n"
             f"$$N_{{\\text{{eff}}}} = \\frac{{1}}{{\\text{{HHI}}}} = \\frac{{1}}{{{c['hhi']:.4f}}} = \\mathbf{{{c['effective_assets']:.2f}}}$$\n\n"
             f"If all {n} holdings were equally weighted at {100/n:.1f}%, $N_{{\\text{{eff}}}}$ would equal **{n:.1f}**.")
