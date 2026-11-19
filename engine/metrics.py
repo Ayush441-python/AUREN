@@ -19,9 +19,23 @@ def concentration(w: pd.Series) -> dict:
     }
 
 
-def portfolio_returns(prices: pd.DataFrame, w: pd.Series) -> pd.Series:
-    r = prices[w.index].dropna().pct_change().dropna()
-    return r @ w  # assumes weights held constant each day
+def portfolio_returns(
+    prices: pd.DataFrame, w: pd.Series, *, rebalance_daily: bool = False
+) -> pd.Series:
+    """Daily portfolio returns over the aligned price history.
+
+    By default computes true buy-and-hold (drifting-weight) returns from initial
+    weights ``w``: V_t = sum_i w_i * (P_{i,t} / P_{i,0}), r_t = V_t / V_{t-1} - 1.
+    Pass ``rebalance_daily=True`` for frictionless daily constant-mix (``r @ w``).
+    """
+    aligned = prices[w.index].dropna()
+    if len(aligned) < 2:
+        return pd.Series(dtype=float, index=aligned.index[:0])
+    w_norm = w / w.sum()
+    if rebalance_daily:
+        return aligned.pct_change().dropna() @ w_norm
+    wealth = (aligned / aligned.iloc[0]) @ w_norm
+    return wealth.pct_change().dropna()
 
 
 def volatility(pr: pd.Series) -> float:
@@ -29,8 +43,11 @@ def volatility(pr: pd.Series) -> float:
 
 
 def max_drawdown(pr: pd.Series) -> float:
+    if pr.empty:
+        return 0.0
     value = (1 + pr).cumprod()
-    return float((value / value.cummax() - 1).min())
+    peaks = value.cummax().clip(lower=1.0)
+    return float((value / peaks - 1).min())
 
 
 def correlation(prices: pd.DataFrame, tickers) -> pd.DataFrame:
