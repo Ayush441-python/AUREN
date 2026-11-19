@@ -10,10 +10,20 @@ VOL_CACHE = ROOT / "volume.csv"
 
 def _download(field: str, tickers: list[str], period: str) -> pd.DataFrame | None:
     try:
+        if not tickers:
+            return None
         df = yf.download(tickers, period=period, auto_adjust=True,
                          progress=False)[field]
         if isinstance(df, pd.Series):
             df = df.to_frame(tickers[0])
+        if not isinstance(df, pd.DataFrame):
+            return None
+        if not all(t in df.columns for t in tickers):
+            return None
+        if any(df[t].dropna().empty for t in tickers):
+            return None
+        if df[tickers].dropna().empty:
+            return None
         df = df.dropna(how="all")
         if not df.empty:
             return df
