@@ -19,9 +19,17 @@ def concentration(w: pd.Series) -> dict:
     }
 
 
-def portfolio_returns(prices: pd.DataFrame, w: pd.Series) -> pd.Series:
-    r = prices[w.index].dropna().pct_change().dropna()
-    return r @ w  # assumes weights held constant each day
+def portfolio_returns(
+    prices: pd.DataFrame, w: pd.Series, rebalance_daily: bool = False
+) -> pd.Series:
+    aligned = prices[w.index].dropna()
+    if len(aligned) < 2:
+        return pd.Series(dtype=float)
+    if rebalance_daily:
+        r = aligned.pct_change().dropna()
+        return r @ w  # assumes weights held constant each day
+    wealth = (aligned / aligned.iloc[0]) @ w
+    return wealth.pct_change().dropna()
 
 
 def volatility(pr: pd.Series) -> float:
