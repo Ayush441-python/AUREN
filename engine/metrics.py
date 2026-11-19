@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
-from engine.universe import GROUPS
+
+from engine.universe import GROUPS, ISSUERS
 
 
 def sector_exposure(w: pd.Series) -> pd.Series:
@@ -9,13 +10,22 @@ def sector_exposure(w: pd.Series) -> pd.Series:
 
 
 def concentration(w: pd.Series) -> dict:
-    hhi = float((w ** 2).sum())  # 1.0 = everything in one asset
+    if w.empty:
+        return {
+            "top_asset": None,
+            "top_weight": 0.0,
+            "top3_weight": 0.0,
+            "hhi": 0.0,
+            "effective_assets": 0.0,
+        }
+    iw = w.groupby(w.index.map(lambda t: ISSUERS.get(t, t))).sum()
+    hhi = float((iw ** 2).sum())  # 1.0 = everything in one asset
     return {
-        "top_asset": w.idxmax(),
-        "top_weight": float(w.max()),
-        "top3_weight": float(w.nlargest(3).sum()),
+        "top_asset": iw.idxmax(),
+        "top_weight": float(iw.max()),
+        "top3_weight": float(iw.nlargest(3).sum()),
         "hhi": hhi,
-        "effective_assets": 1 / hhi,  # "you really own this many assets"
+        "effective_assets": 1 / hhi if hhi > 0 else 0.0,  # "you really own this many assets"
     }
 
 
