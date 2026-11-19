@@ -36,3 +36,31 @@ def stress(w: pd.Series, shocks: dict) -> float:
 def worst_periods(pr: pd.Series) -> dict:
     month = (1 + pr).rolling(21).apply(np.prod, raw=True) - 1
     return {"worst_day": float(pr.min()), "worst_month": float(month.min())}
+
+
+def custom_shock_feedback(impact: float, dollar: float, shocks: dict) -> tuple[str, dict]:
+    """Return feedback message and callout options for custom stress test results.
+
+    Distinguishes untouched controls (all shocks zero) from offsetting shocks where
+    nonzero sector shocks offset to produce neutral net portfolio return.
+    """
+    if impact < -1e-9:
+        msg = (
+            f"Under this custom shock, your portfolio declines by <b>{impact:.1%}</b> "
+            f"(a drop of <b>${abs(dollar):,.0f}</b>)."
+        )
+        return msg, {"danger": True}
+    elif impact > 1e-9:
+        msg = (
+            f"Under this custom shock, your portfolio gains <b>{impact:+.1%}</b> "
+            f"(a rise of <b>${dollar:,.0f}</b>)."
+        )
+        return msg, {}
+    elif any(abs(v) > 1e-9 for v in shocks.values()):
+        msg = (
+            "Under this custom shock, the selected sector shocks offset, "
+            "resulting in no net change to portfolio value."
+        )
+        return msg, {}
+    else:
+        return "Move the sliders to see hypothetical stress test impact.", {"muted": True}
