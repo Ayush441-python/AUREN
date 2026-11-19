@@ -8,6 +8,11 @@ ROOT = Path(__file__).resolve().parent.parent
 
 GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 GROQ_MODEL = "openai/gpt-oss-120b"
+DEFAULTS = {
+    "LLM_BASE_URL": GROQ_BASE_URL,
+    "LLM_MODEL": GROQ_MODEL,
+    "LLM_REASONING_EFFORT": "low",
+}
 
 
 def _parse_env_file(path: Path) -> dict[str, str]:
@@ -32,10 +37,6 @@ def load_env() -> None:
     parsed.update(_parse_env_file(Path.cwd() / ".env"))
     for key, val in parsed.items():
         os.environ[key] = val
-    # Defaults so Groq works once LLM_API_KEY is set
-    os.environ.setdefault("LLM_BASE_URL", GROQ_BASE_URL)
-    os.environ.setdefault("LLM_MODEL", GROQ_MODEL)
-    os.environ.setdefault("LLM_REASONING_EFFORT", "low")
     try:
         from dotenv import load_dotenv
         load_dotenv(ROOT / ".env", override=True)
@@ -47,18 +48,18 @@ def secret(name: str):
     try:
         import streamlit as st
         return st.secrets[name]
-    except Exception:
+    except Exception:  # noqa: BLE001
         return None
 
 
 def setting(name: str, default=None):
-    """Prefer environment / `.env`, then Streamlit secrets."""
+    """Prefer environment / `.env`, then Streamlit secrets, then built-in defaults."""
     value = os.getenv(name)
-    if value is not None:
-        value = value.strip()
-        if value:
-            return value
+    if value is not None and value.strip():
+        return value.strip()
     found = secret(name)
     if found is not None and str(found).strip():
         return str(found).strip()
-    return default
+    if name in os.environ or found is not None:
+        return default
+    return DEFAULTS.get(name, default)
