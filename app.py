@@ -881,7 +881,8 @@ with tab_ai:
         if rep[0] != metrics_json:
             st.markdown(callout("The portfolio configuration has changed since this report was generated. Click 'Generate AI Report' to refresh.", muted=True), unsafe_allow_html=True)
         st.markdown(rep[1])
-        bad = unverified_numbers(rep[1], metrics)
+        snapshot = json.loads(rep[0])
+        bad = unverified_numbers(rep[1], snapshot)
         if bad:
             st.warning("Hallucination guard: These figures appeared in the report without matching deterministic engine metrics: "
                        + ", ".join(f"{b:g}" for b in bad)
