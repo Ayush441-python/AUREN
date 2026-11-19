@@ -97,6 +97,11 @@ _GROUP_MEMBERS = {
 }
 GROUPS = {t: g for g, members in _GROUP_MEMBERS.items() for t in members}
 
+# Share classes of the same company mapped to a canonical issuer ticker
+ISSUERS = {
+    "GOOG": "GOOGL",
+}
+
 _mismatch = set(SECTORS) ^ set(GROUPS)
 if _mismatch:
     raise ValueError(f"Tickers missing from SECTORS or GROUPS: {sorted(_mismatch)}")
