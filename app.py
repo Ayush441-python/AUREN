@@ -589,7 +589,7 @@ with tab_stress:
         dollar_impact = impact * size
         scen_results.append({
             "Scenario": scen_name,
-            "Impact %": impact,
+            "Impact %": impact * 100,
             "Estimated Loss ($)": dollar_impact,
             "Portfolio Value After ($)": size * (1 + impact)
         })
@@ -607,7 +607,7 @@ with tab_stress:
         scen_df, hide_index=True,
         column_config={
             "Impact %": st.column_config.ProgressColumn(
-                "Impact %", min_value=-0.50, max_value=0.10, format="%+.1f%%"),
+                "Impact %", min_value=-50.0, max_value=20.0, format="%+.1f%%"),
             "Estimated Loss ($)": st.column_config.NumberColumn(
                 "Estimated Loss ($)", format="$%,.0f"),
             "Portfolio Value After ($)": st.column_config.NumberColumn(
