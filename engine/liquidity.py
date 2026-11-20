@@ -18,6 +18,6 @@ def avg_daily_value(prices: pd.DataFrame, volumes: pd.DataFrame,
 
 def days_to_exit(position_values: pd.Series, adv: pd.Series,
                  participation: float = 0.10) -> pd.Series:
-    """Days needed to sell each position at `participation` of average daily volume."""
+    """Days needed to unwind (sell long or buy-to-cover short) each position at `participation` of average daily volume."""
     adv = adv.reindex(position_values.index).replace(0, float("nan"))
-    return position_values / (participation * adv)
+    return position_values.abs() / (participation * adv)

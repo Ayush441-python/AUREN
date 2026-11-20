@@ -1,5 +1,6 @@
 import pandas as pd
 import pytest
+from engine.liquidity import days_to_exit
 from engine.metrics import (
     concentration,
     volatility,
@@ -73,3 +74,13 @@ def test_stress_scenario():
     w = pd.Series([0.5, 0.5], index=["NVDA", "GLD"])
     shocks = {"Big Tech": -0.20}
     assert stress(w, shocks) == pytest.approx(-0.10)
+
+
+def test_days_to_exit_short_positions():
+    position_values = pd.Series({"AAPL": -100_000.0, "MSFT": 200_000.0})
+    adv = pd.Series({"AAPL": 1_000_000.0, "MSFT": 1_000_000.0})
+    actual = days_to_exit(position_values, adv, participation=0.10)
+    assert actual["AAPL"] == pytest.approx(1.0)
+    assert actual["MSFT"] == pytest.approx(2.0)
+    assert (actual >= 0).all()
+
