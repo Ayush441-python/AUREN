@@ -150,7 +150,8 @@ def get_volumes(tickers: tuple) -> pd.DataFrame:
 
 def analyze(w: pd.Series):
     """Run the full AUREN engine on one portfolio. Returns None if data is too short."""
-    prices = get_prices(tuple(sorted(w.index))).dropna()
+    raw_prices = get_prices(tuple(sorted(w.index)))
+    prices = raw_prices.dropna()
     if len(prices) < 30:
         return None
     c = concentration(w)
@@ -158,7 +159,7 @@ def analyze(w: pd.Series):
     vol, mdd = volatility(pr), max_drawdown(pr)
     value = (1 + pr).cumprod()
     drawdown = value / value.cummax() - 1
-    corr = correlation(prices, w.index)
+    corr = correlation(raw_prices, w.index)
     pairs = high_pairs(corr)
     exposure = sector_exposure(w)
     periods = worst_periods(pr)
