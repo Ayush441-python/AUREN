@@ -42,3 +42,15 @@ def high_pairs(corr: pd.DataFrame, threshold: float = 0.7) -> list[tuple]:
     return [(a, b, round(float(corr.loc[a, b]), 2))
             for i, a in enumerate(cols) for b in cols[i + 1:]
             if corr.loc[a, b] > threshold]
+
+
+def common_prices(prices: pd.DataFrame | pd.Series, tickers=None) -> pd.DataFrame:
+    """Return price history aligned to dates where all specified tickers have quotes."""
+    if isinstance(prices, pd.Series):
+        prices = prices.to_frame()
+    if tickers is not None:
+        tickers = list(tickers)
+        if not set(tickers).issubset(prices.columns):
+            return pd.DataFrame()
+        return prices[tickers].dropna().sort_index()
+    return prices.dropna().sort_index()
