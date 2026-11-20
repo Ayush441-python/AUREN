@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 import pandas as pd
 from engine.universe import GROUPS
@@ -5,7 +7,11 @@ from engine.universe import GROUPS
 
 def sector_exposure(w: pd.Series) -> pd.Series:
     """Weight per broad group (Big Tech, Crypto, ...)."""
-    return w.groupby(w.index.map(lambda t: GROUPS.get(t, "Other"))).sum().sort_values(ascending=False)
+    # math.fsum instead of .sum(): plain float addition is order-dependent, so
+    # reordering the same holdings could make an exactly-50% group total read as
+    # 0.5000000000000001 and trip the strictly-more-than-50% risk rule.
+    groups = w.index.map(lambda t: GROUPS.get(t, "Other"))
+    return w.groupby(groups).agg(lambda g: math.fsum(g)).sort_values(ascending=False)
 
 
 def concentration(w: pd.Series) -> dict:
