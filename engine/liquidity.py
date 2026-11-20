@@ -18,6 +18,20 @@ def avg_daily_value(prices: pd.DataFrame, volumes: pd.DataFrame,
 
 def days_to_exit(position_values: pd.Series, adv: pd.Series,
                  participation: float = 0.10) -> pd.Series:
-    """Days needed to sell each position at `participation` of average daily volume."""
+    """Days needed to liquidate each position at `participation` of average daily volume.
+    
+    Physical liquidation duration is always non-negative as it represents the time
+    required to unwind positions regardless of direction (buy to cover shorts,
+    or sell longs). Uses absolute value of position values since liquidity demand
+    equals |position| in both directions.
+    
+    Args:
+        position_values: Portfolio position values per ticker (can be positive or negative)
+        adv: Average daily traded value per ticker
+        participation: Market participation rate (fraction of ADV to absorb)
+    
+    Returns:
+        pd.Series of liquidation days per position (always non-negative)
+    """
     adv = adv.reindex(position_values.index).replace(0, float("nan"))
-    return position_values / (participation * adv)
+    return position_values.abs() / (participation * adv)
