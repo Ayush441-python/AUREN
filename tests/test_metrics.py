@@ -1,3 +1,5 @@
+import itertools
+
 import pandas as pd
 import pytest
 from engine.metrics import (
@@ -73,3 +75,43 @@ def test_stress_scenario():
     w = pd.Series([0.5, 0.5], index=["NVDA", "GLD"])
     shocks = {"Big Tech": -0.20}
     assert stress(w, shocks) == pytest.approx(-0.10)
+
+
+# --- Issue #133: exactly 50% in a broad group must not trip the >50% rule ---
+
+_BALANCED = {"NVDA": 0.17, "MSFT": 0.28, "AAPL": 0.05, "AMD": 0.25, "TSM": 0.25}
+_BIG_TECH = ["NVDA", "MSFT", "AAPL"]
+
+
+@pytest.mark.parametrize("order", list(itertools.permutations(_BIG_TECH)))
+def test_exact_half_group_is_order_independent(order):
+    # Big Tech = 17 + 28 + 5 = 50%, AI & Semis = 25 + 25 = 50%. Entering the
+    # Big Tech names in any order must give exactly 0.5, never 0.5 + 1 ULP.
+    tickers = list(order) + ["AMD", "TSM"]
+    w = pd.Series({t: _BALANCED[t] for t in tickers}, dtype=float)
+    w = w / w.sum()
+    assert float(sector_exposure(w).max()) == 0.5
+
+
+@pytest.mark.parametrize("order", list(itertools.permutations(_BIG_TECH)))
+def test_exact_half_group_scores_low_in_every_order(order):
+    # Only the controlled 31% volatility should score: 20 points, Low.
+    tickers = list(order) + ["AMD", "TSM"]
+    w = pd.Series({t: _BALANCED[t] for t in tickers}, dtype=float)
+    w = w / w.sum()
+    conc = {"top_weight": 0.28, "effective_assets": 4.6}
+    score, level, hits = risk_score(
+        conc, 0.31, -0.10, [], float(sector_exposure(w).max())
+    )
+    assert (score, level) == (20, "Low")
+    assert not any("sits in one sector" in why for _, why in hits)
+
+
+@pytest.mark.parametrize(
+    "sector_max, expected",
+    [(0.4999, 0), (0.50, 0), (0.5001, 15)],
+)
+def test_only_strictly_over_half_triggers_the_sector_rule(sector_max, expected):
+    conc = {"top_weight": 0.10, "effective_assets": 10}
+    score, _, _ = risk_score(conc, 0.10, -0.05, [], sector_max)
+    assert score == expected
