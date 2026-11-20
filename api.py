@@ -7,8 +7,7 @@ from engine.metrics import (
     portfolio_returns,
     volatility,
     max_drawdown,
-    correlation,
-    high_pairs,
+    correlation_and_pairs,
     sector_exposure,
 )
 from engine.score import risk_score
@@ -65,8 +64,7 @@ def risk(p: Portfolio):
     vol = volatility(pr)
     mdd = max_drawdown(pr)
 
-    corr = correlation(prices, w.index)
-    pairs = high_pairs(corr)
+    _, pairs = correlation_and_pairs(prices, w.index)
     exposure = sector_exposure(w)
 
     score, level, hits = risk_score(

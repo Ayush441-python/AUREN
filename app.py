@@ -9,7 +9,7 @@ from engine.data import load_prices, load_volumes
 from engine.env import load_env, setting
 from engine.liquidity import avg_daily_value, days_to_exit
 from engine.metrics import (concentration, portfolio_returns, volatility,
-                            max_drawdown, correlation, high_pairs, sector_exposure)
+                            max_drawdown, correlation_and_pairs, sector_exposure)
 from engine.report import ai_report, unverified_numbers
 from engine.score import risk_score, RULE_TABLE
 from engine.stress import SCENARIOS, stress, worst_periods
@@ -158,8 +158,7 @@ def analyze(w: pd.Series):
     vol, mdd = volatility(pr), max_drawdown(pr)
     value = (1 + pr).cumprod()
     drawdown = value / value.cummax() - 1
-    corr = correlation(prices, w.index)
-    pairs = high_pairs(corr)
+    corr, pairs = correlation_and_pairs(prices, w.index)
     exposure = sector_exposure(w)
     periods = worst_periods(pr)
     max_sector_val = float(exposure.max()) if not exposure.empty else 0.0
