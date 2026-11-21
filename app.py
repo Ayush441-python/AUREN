@@ -150,7 +150,8 @@ def get_volumes(tickers: tuple) -> pd.DataFrame:
 
 def analyze(w: pd.Series):
     """Run the full AUREN engine on one portfolio. Returns None if data is too short."""
-    prices = get_prices(tuple(sorted(w.index))).dropna()
+    raw_prices = get_prices(tuple(sorted(w.index)))
+    prices = raw_prices.dropna()
     if len(prices) < 30:
         return None
     c = concentration(w)
@@ -165,7 +166,8 @@ def analyze(w: pd.Series):
     max_sector_val = float(exposure.max()) if not exposure.empty else 0.0
     score, level, hits = risk_score(c, vol, mdd, pairs, max_sector_val)
 
-    return dict(prices=prices, c=c, pr=pr, vol=vol, mdd=mdd, value=value,
+    return dict(prices=prices, raw_prices=raw_prices, per_asset_prices=raw_prices,
+                c=c, pr=pr, vol=vol, mdd=mdd, value=value,
                 drawdown=drawdown, corr=corr, pairs=pairs, exposure=exposure,
                 score=score, level=level, hits=hits, periods=periods)
 
@@ -330,6 +332,7 @@ if A is None:
     st.stop()
 
 prices, c, pr, vol, mdd = A["prices"], A["c"], A["pr"], A["vol"], A["mdd"]
+raw_prices = A["raw_prices"]
 value, drawdown, corr, pairs = A["value"], A["drawdown"], A["corr"], A["pairs"]
 exposure, score, level, hits = A["exposure"], A["score"], A["level"], A["hits"]
 periods = A["periods"]
@@ -653,7 +656,7 @@ with tab_liq:
             "Measures how many trading days are needed to exit each holding assuming a conservative 10% daily volume participation rate.")
 
     volumes = get_volumes(tuple(sorted(weights.index)))
-    adv = avg_daily_value(prices, volumes, window=30)
+    adv = avg_daily_value(raw_prices, volumes, window=30)
     pos_values = weights * size
     dte = days_to_exit(pos_values, adv, participation=0.10)
 
