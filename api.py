@@ -173,11 +173,17 @@ def _normalize_and_validate_weights(weights: Dict[str, float]) -> pd.Series:
             detail="Portfolio weights cannot be empty",
         )
 
-    # Normalize ticker symbols to uppercase (merge duplicates after cleaning)
-    clean_weights: Dict[str, float] = {}
-    for k, v in weights.items():
-        key = k.strip().upper()
-        clean_weights[key] = clean_weights.get(key, 0.0) + v
+    # Normalize ticker symbols to uppercase, rejecting canonical collisions
+    # (e.g. "AAPL" and "aapl" would otherwise silently overwrite each other)
+    clean_weights = {}
+    for raw_ticker, value in weights.items():
+        ticker = raw_ticker.strip().upper()
+        if ticker in clean_weights:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Duplicate canonical ticker: {ticker}",
+            )
+        clean_weights[ticker] = value
 
     unknown = [t for t in clean_weights if t not in SECTORS]
     if unknown:

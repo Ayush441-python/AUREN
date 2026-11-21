@@ -39,6 +39,16 @@ def test_risk_valid():
     assert "sector_exposure" in data
     assert "stress" in data
 
+def test_risk_duplicate_canonical_ticker():
+    # Issue #172: case/whitespace aliases must not silently overwrite each other
+    response = client.post("/risk", json={"weights": {"AAPL": 40, "aapl": 60, "MSFT": 50}})
+    assert response.status_code == 400
+    assert "Duplicate canonical ticker" in response.json()["detail"]
+
+def test_risk_whitespace_alias():
+    response = client.post("/risk", json={"weights": {"AAPL": 40, " AAPL ": 60, "MSFT": 50}})
+    assert response.status_code == 400
+
 def test_risk_invalid_ticker():
     response = client.post("/risk", json={"weights": {"INVALID_TICKER_XYZ": 100}})
     assert response.status_code == 400
