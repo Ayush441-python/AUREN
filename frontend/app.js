@@ -436,7 +436,7 @@ function renderHistory(A) {
 
   chart("ddChart", {
     type: "line",
-    data: { labels, datasets: [{ label: "Drawdown", data: thin(A.drawdown_series || [], step).map((v) => v * 100), borderColor: C.gold, backgroundColor: "rgba(214,178,94,0.14)", fill: true, borderWidth: 1.8, pointRadius: 0, tension: 0.1 }] },
+    data: { labels, datasets: [{ label: "Drawdown", data: thin(A.drawdown_series || [], step).map((v) => (v != null ? v * 100 : null)), borderColor: C.gold, backgroundColor: "rgba(214,178,94,0.14)", fill: true, borderWidth: 1.8, pointRadius: 0, tension: 0.1 }] },
     options: lineOptions({ pct: true, min: A.max_drawdown ? A.max_drawdown * 120 : undefined, max: 2 }),
   });
 }
@@ -579,8 +579,8 @@ function renderWhatIf(A, B) {
 
   const dates = A.dates || [], step = Math.max(1, Math.floor(dates.length / 250));
   chart("wfChart", { type: "line", data: { labels: thin(dates, step), datasets: [
-    { label: "Current", data: thin(A.drawdown_series || [], step).map((v) => v * 100), borderColor: "#7A7F88", borderWidth: 2, pointRadius: 0 },
-    { label: "What-if", data: thin(B.drawdown_series || [], step).map((v) => v * 100), borderColor: C.gold, borderWidth: 2.5, pointRadius: 0 }] },
+    { label: "Current", data: thin(A.drawdown_series || [], step).map((v) => (v != null ? v * 100 : null)), borderColor: "#7A7F88", borderWidth: 2, pointRadius: 0 },
+    { label: "What-if", data: thin(B.drawdown_series || [], step).map((v) => (v != null ? v * 100 : null)), borderColor: C.gold, borderWidth: 2.5, pointRadius: 0 }] },
     options: lineOptions({ legend: true, pct: true }) });
 }
 
