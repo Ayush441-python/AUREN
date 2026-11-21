@@ -9,6 +9,10 @@ RULE_TABLE = [
 
 
 def risk_score(conc: dict, vol: float, mdd: float, pairs: list, sector_max: float):
+    # Use 1e-9 tolerance on sector_max to prevent floating point representation error
+    # from triggering strictly greater than 50% penalty on exactly 50% allocations.
+    sector_exceeded = round(sector_max, 9) > 0.50
+
     rules = [
         (conc["top_weight"] > 0.30, 20,
          f"Largest holding is {conc['top_weight']:.0%} (over 30%)"),
@@ -20,7 +24,7 @@ def risk_score(conc: dict, vol: float, mdd: float, pairs: list, sector_max: floa
          f"Worst past fall was {mdd:.0%} (deeper than -30%)"),
         (len(pairs) >= 2, 15,
          f"{len(pairs)} pairs of assets move closely together"),
-        (sector_max > 0.50, 15,
+        (sector_exceeded, 15,
          f"{sector_max:.0%} sits in one sector"),
     ]
     hits = [(pts, why) for hit, pts, why in rules if hit]

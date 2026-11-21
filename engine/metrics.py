@@ -1,11 +1,18 @@
+import math
 import numpy as np
 import pandas as pd
 from engine.universe import GROUPS
 
 
 def sector_exposure(w: pd.Series) -> pd.Series:
-    """Weight per broad group (Big Tech, Crypto, ...)."""
-    return w.groupby(w.index.map(lambda t: GROUPS.get(t, "Other"))).sum().sort_values(ascending=False)
+    """Weight per broad group (Big Tech, Crypto, ...).
+    
+    Uses math.fsum and round to eliminate IEEE 754 precision skew at exact boundary thresholds.
+    """
+    grouped = w.groupby(w.index.map(lambda t: GROUPS.get(t, "Other"))).apply(
+        lambda s: round(math.fsum(s), 9)
+    )
+    return grouped.sort_values(ascending=False)
 
 
 def concentration(w: pd.Series) -> dict:
