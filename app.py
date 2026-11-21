@@ -288,7 +288,12 @@ with st.sidebar:
     with t_col2:
         if not ok and total > 0:
             if st.button("Normalize to 100%", help="Rescales weights to sum to 100% proportionally"):
-                pf["weight"] = (pf["weight"] / total * 100).round(1)
+                weights = (pf["weight"] / total * 100).round(1)
+                diff = round(100.0 - float(weights.sum()), 1)
+                if diff != 0 and len(weights) > 0:
+                    idx = weights.idxmax()
+                    weights.loc[idx] = round(weights.loc[idx] + diff, 1)
+                pf["weight"] = weights
                 st.session_state.pf_df = pf.reset_index(drop=True)
                 st.session_state.pf_v += 1
                 st.rerun()
