@@ -158,7 +158,7 @@ function getPortfolioWeights() {
     const t = r.querySelector(".asset-select").value;
     const w = parseFloat(r.querySelector(".weight-input").value) || 0;
     if (t && w > 0) {
-      weights[t] = w;
+      weights[t] = (weights[t] || 0) + w;
     }
   });
   return weights;

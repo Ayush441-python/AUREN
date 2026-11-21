@@ -64,3 +64,60 @@ def test_wallet_invalid_address():
     response = client.post("/wallet", json={"address": "invalid_address"})
     assert response.status_code == 400
     assert "Invalid EVM/Base address" in response.json()["detail"]
+
+
+def test_duplicate_ticker_weights_accumulated_in_frontend_and_risk_api():
+    import json
+    import os
+    import shutil
+    import subprocess
+
+    app_js = os.path.join(os.path.dirname(__file__), "..", "frontend", "app.js")
+    with open(app_js, encoding="utf-8") as f:
+        src = f.read()
+
+    assert "(weights[t] || 0) + w" in src
+
+    node = shutil.which("node")
+    if node:
+        script = """
+const fs = require("fs");
+const vm = require("vm");
+const src = fs.readFileSync(process.argv[1], "utf8");
+const makeRow = (ticker, weight) => ({
+  querySelector: (sel) => {
+    if (sel === ".asset-select") return { value: ticker };
+    if (sel === ".weight-input") return { value: weight };
+    return null;
+  },
+});
+const ctx = {
+  document: {
+    addEventListener: () => {},
+    querySelectorAll: () => [
+      makeRow("NVDA", "55"),
+      makeRow("NVDA", "5"),
+      makeRow("MSFT", "40"),
+    ],
+  },
+};
+vm.runInNewContext(src, ctx);
+console.log(JSON.stringify(ctx.getPortfolioWeights()));
+"""
+        proc = subprocess.run(
+            [node, "-e", script, app_js],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        weights = json.loads(proc.stdout.strip())
+    else:
+        weights = {"NVDA": 60, "MSFT": 40}
+
+    assert weights == {"NVDA": 60, "MSFT": 40}
+
+    response = client.post("/risk", json={"weights": weights})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["normalized_weights"] == {"NVDA": 0.6, "MSFT": 0.4}
+    assert data["stress"]["NVDA falls 15%"] == -0.09
