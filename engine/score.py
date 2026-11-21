@@ -7,6 +7,9 @@ RULE_TABLE = [
     (15, "More than 50% sits in one sector"),
 ]
 
+VOLATILITY_THRESHOLD = 0.30
+BOUNDARY_EPSILON = 1e-12
+
 
 def risk_score(conc: dict, vol: float, mdd: float, pairs: list, sector_max: float):
     rules = [
@@ -14,7 +17,7 @@ def risk_score(conc: dict, vol: float, mdd: float, pairs: list, sector_max: floa
          f"Largest holding is {conc['top_weight']:.0%} (over 30%)"),
         (conc["effective_assets"] < 4, 15,
          f"Behaves like only {conc['effective_assets']:.1f} assets"),
-        (vol > 0.30, 20,
+        (vol > VOLATILITY_THRESHOLD + BOUNDARY_EPSILON, 20,
          f"Volatility is {vol:.0%} a year (over 30%)"),
         (mdd < -0.30, 15,
          f"Worst past fall was {mdd:.0%} (deeper than -30%)"),
