@@ -301,7 +301,7 @@ function renderSectorChart(sectors) {
 
   const labels = Object.keys(sectors);
   const rawShares = Object.values(sectors);
-  const data = rawShares.map((v) => Math.round(v * 100));
+  const data = rawShares.map((v) => v * 100);
 
   sectorChartInstance = new Chart(ctx, {
     type: "doughnut",
@@ -332,14 +332,14 @@ function renderSectorChart(sectors) {
           callbacks: {
             label: function(context) {
               const label = context.label || "";
-              const pct = context.parsed !== undefined ? context.parsed : 0;
+              const rawShare = (context.dataset && context.dataset.rawShares && context.dataset.rawShares[context.dataIndex] !== undefined)
+                ? context.dataset.rawShares[context.dataIndex]
+                : (sectors && sectors[label] !== undefined ? sectors[label] : ((context.parsed || 0) / 100));
+              const pct = Math.round(rawShare * 100);
               const pValInput = (typeof document !== "undefined" && document.getElementById)
                 ? document.getElementById("portfolio-value")
                 : null;
               const pVal = pValInput ? (parseFloat(pValInput.value) || 0) : 0;
-              const rawShare = (context.dataset && context.dataset.rawShares && context.dataset.rawShares[context.dataIndex] !== undefined)
-                ? context.dataset.rawShares[context.dataIndex]
-                : (sectors && sectors[label] !== undefined ? sectors[label] : (pct / 100));
               const dollarVal = Math.round(rawShare * pVal);
               return ` ${label}: ${pct}% ($${dollarVal.toLocaleString()})`;
             },
