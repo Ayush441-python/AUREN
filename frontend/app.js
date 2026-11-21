@@ -326,6 +326,18 @@ function renderSectorChart(sectors) {
           position: "right",
           labels: { color: "#8A8F98", font: { family: "Inter", size: 11 } },
         },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              const label = context.label || "";
+              const pct = context.parsed || 0;
+              const pValInput = document.getElementById("portfolio-value");
+              const pVal = pValInput ? (parseFloat(pValInput.value) || 0) : 0;
+              const dollarVal = Math.round((pct / 100) * pVal);
+              return ` ${label}: ${pct}% ($${dollarVal.toLocaleString()})`;
+            },
+          },
+        },
       },
     },
   });
