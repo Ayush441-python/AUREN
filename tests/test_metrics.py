@@ -1,7 +1,9 @@
+import numpy as np
 import pandas as pd
 import pytest
 from engine.metrics import (
     concentration,
+    portfolio_returns,
     volatility,
     max_drawdown,
     correlation,
@@ -73,3 +75,78 @@ def test_stress_scenario():
     w = pd.Series([0.5, 0.5], index=["NVDA", "GLD"])
     shocks = {"Big Tech": -0.20}
     assert stress(w, shocks) == pytest.approx(-0.10)
+
+
+def test_short_history_asset_does_not_affect_pairwise_correlation():
+    dates = pd.bdate_range("2025-01-02", periods=161)
+    signals = np.array([
+        [1, -1, 1, -1, 1, -1, 1, -1],
+        [1, 1, -1, -1, 1, 1, -1, -1],
+        [1, 1, 1, 1, -1, -1, -1, -1],
+        [1, -1, -1, 1, 1, -1, -1, 1],
+        [1, -1, 1, -1, -1, 1, -1, 1],
+    ])
+    returns = np.empty((160, 5))
+    for column, signal in enumerate(signals):
+        first_signal = signals[0] if column < 3 else signal
+        returns[:120, column] = np.tile(first_signal, 15) / 100
+        returns[120:, column] = np.tile(signal, 5) / 100
+    prices = pd.DataFrame(
+        100 * np.vstack([np.ones(5), np.cumprod(1 + returns, axis=0)]),
+        index=dates,
+        columns=["NVDA", "AMD", "COST", "JPM", "GLD"],
+    )
+    prices.loc[dates[:120], "GLD"] = np.nan
+
+    corr_4 = correlation(prices, ["NVDA", "AMD", "COST", "JPM"])
+    corr_5 = correlation(prices, ["NVDA", "AMD", "COST", "JPM", "GLD"])
+
+    # NVDA/AMD, NVDA/COST, and AMD/COST correlations should remain 0.75
+    assert corr_4.loc["NVDA", "AMD"] == pytest.approx(0.75)
+    assert corr_5.loc["NVDA", "AMD"] == pytest.approx(0.75)
+    assert corr_5.loc["NVDA", "COST"] == pytest.approx(0.75)
+    assert corr_5.loc["AMD", "COST"] == pytest.approx(0.75)
+
+    pairs_4 = high_pairs(corr_4)
+    pairs_5 = high_pairs(corr_5)
+    assert pairs_4 == [("NVDA", "AMD", 0.75), ("NVDA", "COST", 0.75), ("AMD", "COST", 0.75)]
+    assert pairs_5 == [("NVDA", "AMD", 0.75), ("NVDA", "COST", 0.75), ("AMD", "COST", 0.75)]
+
+    # Four holdings with 25% each
+    weights_4 = pd.Series({"NVDA": 0.25, "AMD": 0.25, "COST": 0.25, "JPM": 0.25})
+    pr_4 = portfolio_returns(prices, weights_4)
+    score_4, level_4, hits_4 = risk_score(
+        concentration(weights_4),
+        volatility(pr_4),
+        max_drawdown(pr_4),
+        pairs_4,
+        float(sector_exposure(weights_4).max()),
+    )
+
+    # Adding 1% GLD should retain the 3 qualifying pairs and the 15 score
+    weights_5 = pd.Series({"NVDA": 0.2475, "AMD": 0.2475, "COST": 0.2475, "JPM": 0.2475, "GLD": 0.01})
+    pr_5 = portfolio_returns(prices, weights_5)
+    score_5, level_5, hits_5 = risk_score(
+        concentration(weights_5),
+        volatility(pr_5),
+        max_drawdown(pr_5),
+        pairs_5,
+        float(sector_exposure(weights_5).max()),
+    )
+
+    assert score_4 == 15 and level_4 == "Low"
+    assert score_5 == 15 and level_5 == "Low"
+
+
+def test_correlation_single_and_non_overlapping():
+    prices = pd.DataFrame(
+        {
+            "A": [100.0, 101.0, 102.0, 103.0],
+            "B": [np.nan, np.nan, 200.0, 202.0],
+            "C": [300.0, 303.0, np.nan, np.nan],
+        }
+    )
+    corr = correlation(prices, ["A", "B", "C"])
+    assert corr.loc["A", "A"] == pytest.approx(1.0)
+    assert np.isnan(corr.loc["A", "B"])
+    assert np.isnan(corr.loc["B", "C"])
