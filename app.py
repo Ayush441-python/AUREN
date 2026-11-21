@@ -12,7 +12,7 @@ from engine.metrics import (concentration, portfolio_returns, volatility,
                             max_drawdown, correlation, high_pairs, sector_exposure)
 from engine.report import ai_report, unverified_numbers
 from engine.score import risk_score, RULE_TABLE
-from engine.stress import SCENARIOS, stress, worst_periods
+from engine.stress import SCENARIOS, custom_shock_feedback, stress, worst_periods
 from engine.universe import GROUPS, SECTORS
 from engine.wallet import (BASE_RPC, is_valid_address, wallet_holdings,
                            holdings_to_portfolio)
@@ -624,6 +624,8 @@ with tab_stress:
             custom_shocks[g] = st.slider(f"{g} shock", min_value=-50, max_value=20, value=0, step=5, format="%d%%") / 100.0
 
     custom_impact = stress(weights, custom_shocks)
+    if abs(custom_impact) < 1e-9:
+        custom_impact = 0.0
     custom_dollar = custom_impact * size
     res_col1, res_col2 = st.columns([1, 2])
     with res_col1:
@@ -642,6 +644,9 @@ with tab_stress:
             st.markdown(callout(
                 f"Under this custom shock, your portfolio gains <b>{custom_impact:+.1%}</b> "
                 f"(a rise of <b>${custom_dollar:,.0f}</b>)."), unsafe_allow_html=True)
+        elif any(v != 0 for v in custom_shocks.values()):
+            st.markdown(callout(
+                "Under this custom shock, the selected shocks offset.", muted=True), unsafe_allow_html=True)
         else:
             st.markdown(callout("Move the sliders to see hypothetical stress test impact.", muted=True), unsafe_allow_html=True)
 

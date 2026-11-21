@@ -9,7 +9,7 @@ from engine.metrics import (
     sector_exposure,
 )
 from engine.score import risk_score
-from engine.stress import stress
+from engine.stress import custom_shock_feedback, stress
 
 
 def test_equal_weights_effective_assets():
@@ -73,3 +73,55 @@ def test_stress_scenario():
     w = pd.Series([0.5, 0.5], index=["NVDA", "GLD"])
     shocks = {"Big Tech": -0.20}
     assert stress(w, shocks) == pytest.approx(-0.10)
+
+
+def test_offsetting_sector_shocks_calculation():
+    # Issue #127 case: MSFT (Big Tech) 50% + COST (Consumer & Retail) 50%
+    weights = pd.Series({"MSFT": 0.5, "COST": 0.5})
+    cases = [
+        ({"Big Tech": 0.0, "Consumer & Retail": 0.0}, 0.0),
+        ({"Big Tech": -0.10, "Consumer & Retail": 0.10}, 0.0),
+        ({"Big Tech": -0.10, "Consumer & Retail": 0.0}, -0.05),
+        ({"Big Tech": 0.0, "Consumer & Retail": 0.10}, 0.05),
+    ]
+    for shocks, expected in cases:
+        net = stress(weights, shocks)
+        assert net == pytest.approx(expected)
+
+
+def test_custom_shock_feedback_all_sliders_zero():
+    shocks = {"Big Tech": 0.0, "Consumer & Retail": 0.0}
+    msg, opts = custom_shock_feedback(0.0, 0.0, shocks)
+    assert msg == "Move the sliders to see hypothetical stress test impact."
+    assert opts.get("muted") is True
+
+
+def test_custom_shock_feedback_offsetting_shocks():
+    shocks = {"Big Tech": -0.10, "Consumer & Retail": 0.10}
+    msg, opts = custom_shock_feedback(0.0, 0.0, shocks)
+    assert msg == "Under this custom shock, the selected shocks offset."
+    assert "selected shocks offset" in msg
+    assert opts.get("muted") is True
+
+
+def test_custom_shock_feedback_with_weights_series():
+    weights = pd.Series({"MSFT": 0.5, "COST": 0.5})
+    shocks = {"Big Tech": -0.10, "Consumer & Retail": 0.10}
+    msg, opts = custom_shock_feedback(weights, shocks)
+    assert msg == "Under this custom shock, the selected shocks offset."
+    assert opts.get("muted") is True
+
+
+def test_custom_shock_feedback_negative_and_positive():
+    shocks_neg = {"Big Tech": -0.10, "Consumer & Retail": 0.0}
+    msg_neg, opts_neg = custom_shock_feedback(-0.05, -500.0, shocks_neg)
+    assert "declines" in msg_neg
+    assert "$500" in msg_neg
+    assert opts_neg.get("danger") is True
+
+    shocks_pos = {"Big Tech": 0.0, "Consumer & Retail": 0.10}
+    msg_pos, opts_pos = custom_shock_feedback(0.05, 500.0, shocks_pos)
+    assert "gains" in msg_pos
+    assert "$500" in msg_pos
+    assert opts_pos.get("danger") is not True
+
