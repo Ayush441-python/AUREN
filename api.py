@@ -229,17 +229,33 @@ def compute_risk(payload: PortfolioRequest):
     # Compute series data for interactive charts
     # 1. Normalized asset price series & cumulative portfolio return series
     norm_prices = (prices / prices.iloc[0] * 100).round(2)
-    cum_ret = ((1 + pr).cumprod() * 100).round(2)
-    
-    # 2. Drawdown series
-    val = (1 + pr).cumprod()
-    dd_series = (val / val.cummax() - 1).round(4)
-
-    # Convert timestamps to string format YYYY-MM-DD
     dates = [d.strftime("%Y-%m-%d") for d in prices.index]
 
-    price_series = {col: norm_prices[col].tolist() for col in norm_prices.columns}
-    price_series["Portfolio"] = cum_ret.tolist()
+    # Reindex portfolio & drawdown series across all dates, baseline on first complete quote (#175)
+    complete_prices = prices[w.index].dropna()
+    portfolio_series = pd.Series(index=prices.index, dtype=object)
+    drawdown_series = pd.Series(index=prices.index, dtype=object)
+
+    if not complete_prices.empty:
+        first_date = complete_prices.index[0]
+        portfolio_series.loc[first_date] = 100.0
+        drawdown_series.loc[first_date] = 0.0
+
+        if not pr.empty:
+            val = (1 + pr).cumprod()
+            cum_ret = (val * 100).round(2)
+            dd_s = (val / val.cummax() - 1).round(4)
+            for d in pr.index:
+                if d in portfolio_series.index:
+                    portfolio_series.loc[d] = float(cum_ret.loc[d])
+                    drawdown_series.loc[d] = float(dd_s.loc[d])
+
+    price_series = {
+        col: [None if pd.isna(x) else round(float(x), 2) for x in norm_prices[col]]
+        for col in norm_prices.columns
+    }
+    price_series["Portfolio"] = [None if pd.isna(x) else float(x) for x in portfolio_series]
+    drawdown_list = [None if pd.isna(x) else float(x) for x in drawdown_series]
 
     corr_matrix = {
         "columns": list(corr.columns),
@@ -254,7 +270,7 @@ def compute_risk(payload: PortfolioRequest):
         "hits": hits,
         "dates": dates,
         "price_series": price_series,
-        "drawdown_series": dd_series.tolist(),
+        "drawdown_series": drawdown_list,
         "correlation_matrix": corr_matrix,
         "concentration": {
             "top_asset": conc["top_asset"],
