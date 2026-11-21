@@ -1,3 +1,5 @@
+from itertools import permutations
+
 import pandas as pd
 import pytest
 from engine.metrics import (
@@ -15,6 +17,17 @@ from engine.stress import stress
 def test_equal_weights_effective_assets():
     w = pd.Series([0.25] * 4, index=list("ABCD"))
     assert concentration(w)["effective_assets"] == pytest.approx(4)
+
+
+def test_effective_assets_is_order_independent():
+    holdings = {"NVDA": 40, "GLD": 15, "JPM": 15, "XOM": 15, "AMGN": 15}
+    for order in permutations(holdings):
+        w = pd.Series({t: holdings[t] for t in order}, dtype=float)
+        w = w / w.sum()
+        conc = concentration(w)
+        assert conc["effective_assets"] == 4.0
+        score, level, _ = risk_score(conc, 0.10, -0.05, [], 0.20)
+        assert score == 20 and level == "Low"
 
 
 def test_drawdown_known_case():
