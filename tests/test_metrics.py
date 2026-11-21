@@ -7,6 +7,7 @@ from engine.metrics import (
     correlation,
     high_pairs,
     sector_exposure,
+    group_exposure,
 )
 from engine.score import risk_score
 from engine.stress import stress
@@ -62,10 +63,68 @@ def test_single_rule_adds_its_points():
 
 
 def test_sector_exposure_tech():
-    # Day 9 test from playbook: NVDA 50% + MSFT 50% gives Big Tech = 100%
+    # NVDA is Semiconductors, MSFT is Software
     w = pd.Series([0.5, 0.5], index=["NVDA", "MSFT"])
     exp = sector_exposure(w)
+    assert exp.get("Semiconductors", 0) == pytest.approx(0.5)
+    assert exp.get("Software", 0) == pytest.approx(0.5)
+
+
+def test_group_exposure_tech():
+    # NVDA 50% + MSFT 50% gives Big Tech = 100%
+    w = pd.Series([0.5, 0.5], index=["NVDA", "MSFT"])
+    exp = group_exposure(w)
     assert exp.get("Big Tech", 0) == pytest.approx(1.0)
+
+
+def test_sector_exposure_single_sector_semis():
+    # Case A: NVDA 50% + AMD 50% -> 100% Semiconductors
+    w = pd.Series({"NVDA": 0.50, "AMD": 0.50})
+    exp = sector_exposure(w)
+    assert exp.get("Semiconductors", 0) == pytest.approx(1.0)
+    assert exp.max() > 0.50
+
+
+def test_sector_exposure_diversified_portfolio():
+    # Case B: Multi-sector diversified portfolio
+    w = pd.Series({"NVDA": 0.30, "MSFT": 0.25, "AAPL": 0.20, "AMZN": 0.25})
+    exp = sector_exposure(w)
+    assert exp.get("Semiconductors", 0) == pytest.approx(0.30)
+    assert exp.get("Software", 0) == pytest.approx(0.25)
+    assert exp.get("Consumer Technology", 0) == pytest.approx(0.20)
+    assert exp.get("E-Commerce & Cloud", 0) == pytest.approx(0.25)
+    assert exp.max() == pytest.approx(0.30)
+
+
+def test_risk_score_sector_penalty_triggered_for_single_sector():
+    # 100% in semiconductors triggers the >50% sector penalty (+15 pts)
+    w = pd.Series({"NVDA": 0.50, "AMD": 0.50})
+    exp = sector_exposure(w)
+    conc = concentration(w)
+    score, level, hits = risk_score(conc, 0.10, -0.05, [], float(exp.max()))
+    sector_hits = [why for pts, why in hits if "sits in one sector" in why]
+    assert len(sector_hits) == 1
+    assert "100% sits in one sector" in sector_hits[0]
+
+
+def test_risk_score_sector_penalty_not_triggered_for_diversified():
+    # Diversified across 4 sectors does NOT trigger >50% sector penalty
+    w = pd.Series({"NVDA": 0.30, "MSFT": 0.25, "AAPL": 0.20, "AMZN": 0.25})
+    exp = sector_exposure(w)
+    conc = concentration(w)
+    score, level, hits = risk_score(conc, 0.10, -0.05, [], float(exp.max()))
+    sector_hits = [why for pts, why in hits if "sits in one sector" in why]
+    assert len(sector_hits) == 0
+
+
+def test_sector_and_group_exposure_unknown_ticker():
+    w = pd.Series([0.6, 0.4], index=["NVDA", "UNKNOWN_TICKER"])
+    s_exp = sector_exposure(w)
+    g_exp = group_exposure(w)
+    assert s_exp.get("Semiconductors", 0) == pytest.approx(0.6)
+    assert s_exp.get("Other", 0) == pytest.approx(0.4)
+    assert g_exp.get("Big Tech", 0) == pytest.approx(0.6)
+    assert g_exp.get("Other", 0) == pytest.approx(0.4)
 
 
 def test_stress_scenario():
