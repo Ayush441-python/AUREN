@@ -9,7 +9,8 @@ from engine.data import load_prices, load_volumes
 from engine.env import load_env, setting
 from engine.liquidity import avg_daily_value, days_to_exit
 from engine.metrics import (concentration, portfolio_returns, volatility,
-                            max_drawdown, correlation, high_pairs, sector_exposure)
+                            max_drawdown, correlation, high_pairs, sector_exposure,
+                            common_prices)
 from engine.report import ai_report, unverified_numbers
 from engine.score import risk_score, RULE_TABLE
 from engine.stress import SCENARIOS, stress, worst_periods
@@ -148,9 +149,13 @@ def get_volumes(tickers: tuple) -> pd.DataFrame:
     return load_volumes(list(tickers))
 
 
-def analyze(w: pd.Series):
+def analyze(w: pd.Series, prices: pd.DataFrame | None = None):
     """Run the full AUREN engine on one portfolio. Returns None if data is too short."""
-    prices = get_prices(tuple(sorted(w.index))).dropna()
+    if prices is None:
+        prices = get_prices(tuple(sorted(w.index)))
+    if not set(w.index).issubset(prices.columns):
+        return None
+    prices = prices[list(w.index)].dropna().sort_index()
     if len(prices) < 30:
         return None
     c = concentration(w)
@@ -766,65 +771,90 @@ with tab_whatif:
         st.warning("What-if weights must add up to 100%.")
     else:
         wb = pd.Series(wb_df["weight"].values / 100, index=wb_df["ticker"].values)
-        B = analyze(wb)
-        if B is None:
-            st.error("Not enough price history for the what-if tickers.")
+        all_tickers = tuple(sorted(set(weights.index) | set(wb.index)))
+        all_prices = get_prices(all_tickers)
+        missing_tickers = [t for t in all_tickers if t not in all_prices.columns]
+
+        if missing_tickers:
+            st.error(f"Missing price data for tickers: {', '.join(missing_tickers)}.")
         else:
-            d = B["score"] - A["score"]
-            note = ("Lower risk score (-%d pts)" % abs(d) if d < 0 else
-                    "Higher risk score (+%d pts)" % d if d > 0 else "No change")
-            w1, w2, w3 = st.columns(3)
-            w1.markdown(card("Current score", f"{A['score']}", A["level"]),
-                        unsafe_allow_html=True)
-            w2.markdown(card("What-if score", f"{B['score']}", B["level"], gold=True),
-                        unsafe_allow_html=True)
-            w3.markdown(card("Delta", f"{d:+d}", note, color="success" if d < 0 else "danger" if d > 0 else ""), unsafe_allow_html=True)
-
-            section("Side-by-side metric comparison")
-            rows = [
-                ("Risk score", f"{A['score']} ({A['level']})", f"{B['score']} ({B['level']})"),
-                ("Largest holding", f"{A['c']['top_asset']} · {A['c']['top_weight']:.1%}",
-                 f"{B['c']['top_asset']} · {B['c']['top_weight']:.1%}"),
-                ("Top 3 holdings", f"{A['c']['top3_weight']:.1%}",
-                 f"{B['c']['top3_weight']:.1%}"),
-                ("Effective number of assets", f"{A['c']['effective_assets']:.1f}",
-                 f"{B['c']['effective_assets']:.1f}"),
-                ("Top sector group", f"{A['exposure'].idxmax()} · {A['exposure'].max():.1%}",
-                 f"{B['exposure'].idxmax()} · {B['exposure'].max():.1%}"),
-                ("Volatility (annual)", f"{A['vol']:.1%}", f"{B['vol']:.1%}"),
-                ("Worst drawdown", f"{A['mdd']:.1%}", f"{B['mdd']:.1%}"),
-                ("Correlated pairs (>0.7)", str(len(A["pairs"])), str(len(B["pairs"]))),
-            ]
-            st.dataframe(pd.DataFrame(rows, columns=["Metric", "Current", "What-if"]),
-                         hide_index=True)
-
-            rc1, rc2 = st.columns(2)
-            with rc1:
-                st.markdown("**Current: Triggered Rules**")
-                for pts, why in A["hits"]:
-                    st.markdown(callout(f"<b>+{pts}</b> · {why}", muted=True),
+            common_df = common_prices(all_prices, all_tickers)
+            if common_df.empty or len(common_df) < 30:
+                if common_df.empty:
+                    st.error("Not enough shared price history to compare these portfolios (no overlapping trading sessions found).")
+                else:
+                    st.error(f"Too few shared prices to compare portfolios ({len(common_df)} shared sessions available; at least 30 required).")
+            else:
+                A_cmp = analyze(weights, prices=common_df)
+                B_cmp = analyze(wb, prices=common_df)
+                if A_cmp is None or B_cmp is None:
+                    st.error("Not enough price history on the common window for these portfolios.")
+                else:
+                    d = B_cmp["score"] - A_cmp["score"]
+                    note = ("Lower risk score (-%d pts)" % abs(d) if d < 0 else
+                            "Higher risk score (+%d pts)" % d if d > 0 else "No change")
+                    w1, w2, w3 = st.columns(3)
+                    w1.markdown(card("Current score", f"{A_cmp['score']}", A_cmp["level"]),
                                 unsafe_allow_html=True)
-                if not A["hits"]:
-                    st.caption("No rules triggered.")
-            with rc2:
-                st.markdown("**What-if: Triggered Rules**")
-                for pts, why in B["hits"]:
-                    st.markdown(callout(f"<b>+{pts}</b> · {why}"),
+                    w2.markdown(card("What-if score", f"{B_cmp['score']}", B_cmp["level"], gold=True),
                                 unsafe_allow_html=True)
-                if not B["hits"]:
-                    st.caption("No rules triggered.")
+                    w3.markdown(card("Delta", f"{d:+d}", note, color="success" if d < 0 else "danger" if d > 0 else ""), unsafe_allow_html=True)
 
-            section("Historical drawdown: Current vs What-if",
-                    "Simulated past drawdown profile with identical lookback window")
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(x=A["drawdown"].index, y=A["drawdown"].values,
-                                     name="Current", line=dict(color="#7A7F88", width=2)))
-            fig.add_trace(go.Scatter(x=B["drawdown"].index, y=B["drawdown"].values,
-                                     name="What-if", line=dict(color=GOLD, width=2.5)))
-            style(fig, height=320)
-            fig.update_yaxes(tickformat=".0%")
-            with st.container(border=True):
-                st.plotly_chart(fig)
+                    start_date = A_cmp["pr"].index[0]
+                    end_date = A_cmp["pr"].index[-1]
+                    n_returns = len(A_cmp["pr"])
+                    n_sessions = len(common_df)
+
+                    st.caption(f"Same-window comparison: **{n_returns}** returns evaluated over **{n_sessions}** shared sessions ({start_date:%d %b %Y} to {end_date:%d %b %Y}). Standalone full-history metrics are preserved in other tabs.")
+                    if A["score"] != A_cmp["score"]:
+                        st.caption(f"Note: Current portfolio standalone score is **{A['score']}** ({A['level']}) over its full history.")
+
+                    section("Side-by-side metric comparison",
+                            f"Common lookback window: {start_date:%d %b %Y} to {end_date:%d %b %Y} ({n_returns} returns)")
+                    rows = [
+                        ("Risk score", f"{A_cmp['score']} ({A_cmp['level']})", f"{B_cmp['score']} ({B_cmp['level']})"),
+                        ("Largest holding", f"{A_cmp['c']['top_asset']} · {A_cmp['c']['top_weight']:.1%}",
+                         f"{B_cmp['c']['top_asset']} · {B_cmp['c']['top_weight']:.1%}"),
+                        ("Top 3 holdings", f"{A_cmp['c']['top3_weight']:.1%}",
+                         f"{B_cmp['c']['top3_weight']:.1%}"),
+                        ("Effective number of assets", f"{A_cmp['c']['effective_assets']:.1f}",
+                         f"{B_cmp['c']['effective_assets']:.1f}"),
+                        ("Top sector group", f"{A_cmp['exposure'].idxmax()} · {A_cmp['exposure'].max():.1%}",
+                         f"{B_cmp['exposure'].idxmax()} · {B_cmp['exposure'].max():.1%}"),
+                        ("Volatility (annual)", f"{A_cmp['vol']:.1%}", f"{B_cmp['vol']:.1%}"),
+                        ("Worst drawdown", f"{A_cmp['mdd']:.1%}", f"{B_cmp['mdd']:.1%}"),
+                        ("Correlated pairs (>0.7)", str(len(A_cmp["pairs"])), str(len(B_cmp["pairs"]))),
+                    ]
+                    st.dataframe(pd.DataFrame(rows, columns=["Metric", "Current", "What-if"]),
+                                 hide_index=True)
+
+                    rc1, rc2 = st.columns(2)
+                    with rc1:
+                        st.markdown("**Current: Triggered Rules**")
+                        for pts, why in A_cmp["hits"]:
+                            st.markdown(callout(f"<b>+{pts}</b> · {why}", muted=True),
+                                        unsafe_allow_html=True)
+                        if not A_cmp["hits"]:
+                            st.caption("No rules triggered.")
+                    with rc2:
+                        st.markdown("**What-if: Triggered Rules**")
+                        for pts, why in B_cmp["hits"]:
+                            st.markdown(callout(f"<b>+{pts}</b> · {why}"),
+                                        unsafe_allow_html=True)
+                        if not B_cmp["hits"]:
+                            st.caption("No rules triggered.")
+
+                    section("Historical drawdown: Current vs What-if",
+                            f"Simulated past drawdown profile with identical lookback window ({start_date:%d %b %Y} to {end_date:%d %b %Y}, {n_returns} returns)")
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(x=A_cmp["drawdown"].index, y=A_cmp["drawdown"].values,
+                                             name="Current", line=dict(color="#7A7F88", width=2)))
+                    fig.add_trace(go.Scatter(x=B_cmp["drawdown"].index, y=B_cmp["drawdown"].values,
+                                             name="What-if", line=dict(color=GOLD, width=2.5)))
+                    style(fig, height=320)
+                    fig.update_yaxes(tickformat=".0%")
+                    with st.container(border=True):
+                        st.plotly_chart(fig)
     st.caption("Comparative analysis of historical backtest data. Analytics only.")
 
 # ============================================================== 9. AI Report
