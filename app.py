@@ -5,7 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from engine.data import load_prices, load_volumes
+from engine.data import load_prices, load_unadjusted_prices, load_volumes
 from engine.env import load_env, setting
 from engine.liquidity import avg_daily_value, days_to_exit
 from engine.metrics import (concentration, portfolio_returns, volatility,
@@ -141,6 +141,11 @@ def style(fig: go.Figure, height: int = 380, title: str | None = None) -> go.Fig
 @st.cache_data(ttl=3600, show_spinner="Loading 2 years of prices…")
 def get_prices(tickers: tuple) -> pd.DataFrame:
     return load_prices(list(tickers))
+
+
+@st.cache_data(ttl=3600, show_spinner="Loading 2 years of unadjusted prices…")
+def get_unadjusted_prices(tickers: tuple) -> pd.DataFrame:
+    return load_unadjusted_prices(list(tickers))
 
 
 @st.cache_data(ttl=3600, show_spinner="Loading 2 years of trading volume…")
@@ -652,8 +657,9 @@ with tab_liq:
     section("Liquidity analysis (Days to Exit)",
             "Measures how many trading days are needed to exit each holding assuming a conservative 10% daily volume participation rate.")
 
+    raw_prices = get_unadjusted_prices(tuple(sorted(weights.index)))
     volumes = get_volumes(tuple(sorted(weights.index)))
-    adv = avg_daily_value(prices, volumes, window=30)
+    adv = avg_daily_value(raw_prices, volumes, window=30)
     pos_values = weights * size
     dte = days_to_exit(pos_values, adv, participation=0.10)
 
