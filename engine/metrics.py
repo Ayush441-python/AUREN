@@ -30,7 +30,7 @@ def volatility(pr: pd.Series) -> float:
 
 def max_drawdown(pr: pd.Series) -> float:
     value = (1 + pr).cumprod()
-    return float((value / value.cummax() - 1).min())
+    return float((value / value.cummax().clip(lower=1.0) - 1).min())
 
 
 def correlation(prices: pd.DataFrame, tickers) -> pd.DataFrame:
