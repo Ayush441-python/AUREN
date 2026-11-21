@@ -4,6 +4,7 @@ import logging
 import os
 from typing import Any, Dict, List, Optional
 
+import numpy as np
 import pandas as pd
 from fastapi import FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -149,10 +150,10 @@ def _normalize_and_validate_weights(weights: Dict[str, float]) -> pd.Series:
         )
 
     w = pd.Series(clean_weights, dtype=float)
-    if (w <= 0).any() or w.sum() <= 0:
+    if not np.isfinite(w).all() or (w <= 0).any() or w.sum() <= 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Weights must be positive numbers summing to > 0",
+            detail="Weights must be finite positive numbers summing to > 0",
         )
 
     return w / w.sum()

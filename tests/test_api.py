@@ -1,3 +1,4 @@
+import pytest
 from fastapi.testclient import TestClient
 from api import app
 
@@ -47,6 +48,19 @@ def test_risk_invalid_ticker():
 def test_risk_empty():
     response = client.post("/risk", json={"weights": {}})
     assert response.status_code == 400
+
+
+@pytest.mark.parametrize("body", [
+    '{"weights":{"NVDA":NaN,"MSFT":50}}',
+    '{"weights":{"NVDA":Infinity,"MSFT":50}}',
+    '{"weights":{"NVDA":-Infinity,"MSFT":50}}',
+])
+def test_risk_non_finite_weights_rejected(body):
+    # Python's json.loads accepts NaN/Infinity literals; they must not reach metrics.
+    response = client.post("/risk", content=body,
+                           headers={"content-type": "application/json"})
+    assert response.status_code == 400
+    assert "finite" in response.json()["detail"]
 
 def test_liquidity_valid():
     response = client.post("/liquidity", json={
