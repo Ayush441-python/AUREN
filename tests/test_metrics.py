@@ -9,7 +9,7 @@ from engine.metrics import (
     sector_exposure,
 )
 from engine.score import risk_score
-from engine.stress import stress
+from engine.stress import stress, worst_periods
 
 
 def test_equal_weights_effective_assets():
@@ -73,3 +73,64 @@ def test_stress_scenario():
     w = pd.Series([0.5, 0.5], index=["NVDA", "GLD"])
     shocks = {"Big Tech": -0.20}
     assert stress(w, shocks) == pytest.approx(-0.10)
+
+
+def test_worst_periods_short_series():
+    # When len(pr) < 21, worst_month bounds window to len(pr) and does not return NaN
+    pr = pd.Series([-0.02, 0.01, -0.03])
+    res = worst_periods(pr)
+    assert not pd.isna(res["worst_month"])
+    assert res["worst_day"] == pytest.approx(-0.03)
+    # (1 - 0.02) * (1 + 0.01) * (1 - 0.03) - 1 = -0.039894
+    assert res["worst_month"] == pytest.approx(-0.039894, abs=1e-5)
+
+
+def test_worst_periods_single_observation():
+    pr = pd.Series([-0.05])
+    res = worst_periods(pr)
+    assert res["worst_day"] == pytest.approx(-0.05)
+    assert res["worst_month"] == pytest.approx(-0.05)
+
+
+def test_worst_periods_empty_and_none():
+    res_empty = worst_periods(pd.Series([], dtype=float))
+    assert pd.isna(res_empty["worst_day"])
+    assert pd.isna(res_empty["worst_month"])
+
+    res_none = worst_periods(None)
+    assert pd.isna(res_none["worst_day"])
+    assert pd.isna(res_none["worst_month"])
+
+
+def test_worst_periods_full_month():
+    # 25 observations: window is 21
+    pr = pd.Series([0.0] * 25)
+    pr.iloc[5] = -0.10
+    res = worst_periods(pr)
+    assert res["worst_day"] == pytest.approx(-0.10)
+    assert res["worst_month"] == pytest.approx(-0.10)
+
+
+def test_rebased_portfolio_convex_hull():
+    # Buy-and-hold rebased portfolio stays inside convex hull of constituent assets
+    prices = pd.DataFrame({
+        "A": [100.0, 200.0, 100.0],
+        "B": [100.0, 100.0, 100.0]
+    })
+    w = pd.Series({"A": 0.5, "B": 0.5})
+    norm = prices / prices.iloc[0] * 100
+    rebased_portfolio = norm[w.index] @ w
+    assert list(rebased_portfolio) == [100.0, 150.0, 100.0]
+
+
+def test_rebased_portfolio_default_data():
+    p = pd.read_csv("data/prices.csv", index_col=0, parse_dates=True)
+    w = pd.Series({"NVDA": 0.4, "MSFT": 0.3, "GOOGL": 0.2, "ETH-USD": 0.1})
+    clean_p = p[list(w.index)].dropna()
+    norm = clean_p / clean_p.iloc[0] * 100
+    rebased_portfolio = norm[w.index] @ w
+
+    assert len(rebased_portfolio) == len(norm)
+    assert rebased_portfolio.iloc[0] == pytest.approx(100.0)
+    assert round(float(rebased_portfolio.iloc[-1]), 4) == 120.9186
+
