@@ -8,6 +8,20 @@ def sector_exposure(w: pd.Series) -> pd.Series:
     return w.groupby(w.index.map(lambda t: GROUPS.get(t, "Other"))).sum().sort_values(ascending=False)
 
 
+def format_weight_term(w: float, max_decimals: int = 4) -> str:
+    """Format a weight for display in mathematical derivations without premature rounding.
+
+    Preserves exact fractional values (e.g. 0.125 instead of 0.12 for 12.5% holdings)
+    while maintaining standard two-decimal formatting for standard fractions (e.g. 0.25).
+    """
+    s = f"{w:.{max_decimals}f}".rstrip("0")
+    if s.endswith("."):
+        s += "00"
+    elif len(s.split(".")[1]) < 2:
+        s += "0"
+    return s
+
+
 def concentration(w: pd.Series) -> dict:
     hhi = float((w ** 2).sum())  # 1.0 = everything in one asset
     return {
