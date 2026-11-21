@@ -86,6 +86,18 @@ uvicorn api:app --reload --port 8000
 pytest
 ```
 
+### 6. Run the External Risk API Client (Veriton)
+```bash
+# Run the reproducible turnkey demonstration (live or in-memory mock engine):
+python3 scripts/risk_client.py --demo
+
+# Query a preset synthetic model portfolio:
+python3 scripts/risk_client.py --preset balanced --mock
+
+# Query custom synthetic portfolio weights:
+python3 scripts/risk_client.py --set NVDA=40 MSFT=30 GOOGL=20 ETH-USD=10 --mock
+```
+
 ---
 
 ## Risk API Example
