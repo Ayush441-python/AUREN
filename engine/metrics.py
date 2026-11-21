@@ -9,13 +9,22 @@ def sector_exposure(w: pd.Series) -> pd.Series:
 
 
 def concentration(w: pd.Series) -> dict:
+    if w.empty:
+        return {
+            "top_asset": "",
+            "top_weight": 0.0,
+            "top3_weight": 0.0,
+            "hhi": 0.0,
+            "effective_assets": 0.0,
+        }
+    abs_w = w.abs()
     hhi = float((w ** 2).sum())  # 1.0 = everything in one asset
     return {
-        "top_asset": w.idxmax(),
-        "top_weight": float(w.max()),
-        "top3_weight": float(w.nlargest(3).sum()),
+        "top_asset": abs_w.idxmax(),
+        "top_weight": float(abs_w.max()),
+        "top3_weight": float(abs_w.nlargest(3).sum()),
         "hhi": hhi,
-        "effective_assets": 1 / hhi,  # "you really own this many assets"
+        "effective_assets": 1 / hhi if hhi > 0 else 0.0,  # "you really own this many assets"
     }
 
 

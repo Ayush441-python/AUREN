@@ -73,3 +73,31 @@ def test_stress_scenario():
     w = pd.Series([0.5, 0.5], index=["NVDA", "GLD"])
     shocks = {"Big Tech": -0.20}
     assert stress(w, shocks) == pytest.approx(-0.10)
+
+
+def test_short_position_concentration_magnitude():
+    # Fixes #141: short positions must measure gross exposure magnitude
+    w = pd.Series({"NVDA": -0.70, "AAPL": 0.15, "MSFT": 0.15})
+    conc = concentration(w)
+    assert conc["top_asset"] == "NVDA"
+    assert conc["top_weight"] == pytest.approx(0.70)
+    assert conc["top3_weight"] == pytest.approx(1.00)
+    assert conc["effective_assets"] == pytest.approx(1 / (0.7**2 + 0.15**2 + 0.15**2))
+
+
+def test_short_position_triggers_risk_score_concentration_rule():
+    # Fixes #141: 70% short holding must trigger the >30% single-holding rule (+20 pts)
+    w = pd.Series({"NVDA": -0.70, "AAPL": 0.15, "MSFT": 0.15})
+    conc = concentration(w)
+    score, level, hits = risk_score(conc, 0.10, -0.05, [], 0.20)
+    assert any(pts == 20 and "Largest holding is 70%" in why for pts, why in hits)
+    assert score >= 20
+
+
+def test_empty_portfolio_concentration():
+    # Guard empty weights gracefully
+    conc = concentration(pd.Series(dtype=float))
+    assert conc["top_asset"] == ""
+    assert conc["top_weight"] == 0.0
+    assert conc["effective_assets"] == 0.0
+
