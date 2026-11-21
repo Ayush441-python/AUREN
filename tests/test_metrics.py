@@ -73,3 +73,40 @@ def test_stress_scenario():
     w = pd.Series([0.5, 0.5], index=["NVDA", "GLD"])
     shocks = {"Big Tech": -0.20}
     assert stress(w, shocks) == pytest.approx(-0.10)
+
+
+def test_exact_thirty_percent_concentration_boundary():
+    # Exactly 30% concentration should not trigger "over 30%" rule (+20 pts)
+    # even with float representation drift
+    conc_exact = {"top_weight": 0.30, "effective_assets": 4.5}
+    conc_drift = {"top_weight": 0.30000000000000004, "effective_assets": 4.5}
+    conc_over = {"top_weight": 0.3001, "effective_assets": 4.5}
+
+    score_exact, _, hits_exact = risk_score(conc_exact, 0.10, -0.05, [], 0.20)
+    score_drift, _, hits_drift = risk_score(conc_drift, 0.10, -0.05, [], 0.20)
+    score_over, _, hits_over = risk_score(conc_over, 0.10, -0.05, [], 0.20)
+
+    assert score_exact == 0 and len(hits_exact) == 0
+    assert score_drift == 0 and len(hits_drift) == 0
+    assert score_over == 20 and len(hits_over) == 1
+    assert "over 30%" in hits_over[0][1]
+
+
+def test_api_risk_unit_invariance_for_thirty_percent():
+    from unittest.mock import patch
+    from fastapi.testclient import TestClient
+    import api
+
+    p = pd.read_csv("data/prices.csv", index_col=0, parse_dates=True)
+    with patch.object(api, "load_prices", side_effect=lambda k, **kwargs: p[k]), TestClient(api.app) as c:
+        # Both percentage inputs (30%) and fractional inputs (0.3) must produce identical 15 Low scores
+        r_pct = c.post("/risk", json={"weights": {"GLD": 30, "COST": 27.5, "JPM": 20, "XOM": 22.5}}).json()
+        r_frac = c.post("/risk", json={"weights": {"GLD": 0.3, "COST": 0.275, "JPM": 0.2, "XOM": 0.225}}).json()
+        r_ctrl = c.post("/risk", json={"weights": {"GLD": 30.01, "COST": 27.49, "JPM": 20, "XOM": 22.5}}).json()
+
+        assert r_pct["score"] == 15 and r_pct["level"] == "Low"
+        assert r_frac["score"] == 15 and r_frac["level"] == "Low"
+        assert r_pct["concentration"]["top_weight"] == pytest.approx(0.30)
+        assert r_frac["concentration"]["top_weight"] == pytest.approx(0.30)
+        assert r_ctrl["score"] == 35 and r_ctrl["level"] == "Medium"
+

@@ -9,8 +9,9 @@ RULE_TABLE = [
 
 
 def risk_score(conc: dict, vol: float, mdd: float, pairs: list, sector_max: float):
+    eps = 1e-9
     rules = [
-        (conc["top_weight"] > 0.30, 20,
+        (conc["top_weight"] > (0.30 + eps), 20,
          f"Largest holding is {conc['top_weight']:.0%} (over 30%)"),
         (conc["effective_assets"] < 4, 15,
          f"Behaves like only {conc['effective_assets']:.1f} assets"),
@@ -20,7 +21,7 @@ def risk_score(conc: dict, vol: float, mdd: float, pairs: list, sector_max: floa
          f"Worst past fall was {mdd:.0%} (deeper than -30%)"),
         (len(pairs) >= 2, 15,
          f"{len(pairs)} pairs of assets move closely together"),
-        (sector_max > 0.50, 15,
+        (sector_max > (0.50 + eps), 15,
          f"{sector_max:.0%} sits in one sector"),
     ]
     hits = [(pts, why) for hit, pts, why in rules if hit]

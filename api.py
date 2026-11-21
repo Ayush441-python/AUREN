@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import logging
 import os
+from decimal import Decimal
 from typing import Any, Dict, List, Optional
-
 import pandas as pd
 from fastapi import FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -136,14 +136,22 @@ def _normalize_and_validate_weights(weights: Dict[str, float]) -> pd.Series:
             detail=f"Unsupported tickers: {unknown}. Supported tickers: {list(SECTORS.keys())}",
         )
 
-    w = pd.Series(clean_weights, dtype=float)
-    if (w <= 0).any() or w.sum() <= 0:
+    w_raw = pd.Series(clean_weights, dtype=float)
+    if (w_raw <= 0).any() or w_raw.sum() <= 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Weights must be positive numbers summing to > 0",
         )
 
-    return w / w.sum()
+    try:
+        dec_weights = [Decimal(str(v)) for v in clean_weights.values()]
+        dec_sum = sum(dec_weights)
+        norm_weights = [float(v / dec_sum) for v in dec_weights]
+        w = pd.Series(norm_weights, index=clean_weights.keys(), dtype=float)
+    except Exception:
+        w = w_raw / w_raw.sum()
+
+    return w
 
 
 from fastapi.responses import RedirectResponse
