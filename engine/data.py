@@ -24,7 +24,7 @@ def _download(field: str, tickers: list[str], period: str) -> pd.DataFrame | Non
 
 def _cached(path: pathlib.Path, tickers: list[str]) -> pd.DataFrame:
     cached = pd.read_csv(path, index_col=0, parse_dates=True)
-    return cached[[t for t in tickers if t in cached.columns]]
+    return cached[[t for t in tickers if t in cached.columns]].dropna(how="all")
 
 
 def load_prices(tickers: list[str], period: str = "2y") -> pd.DataFrame:
