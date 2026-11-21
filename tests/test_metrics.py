@@ -2,6 +2,7 @@ import pandas as pd
 import pytest
 from engine.metrics import (
     concentration,
+    portfolio_returns,
     volatility,
     max_drawdown,
     correlation,
@@ -20,6 +21,45 @@ def test_equal_weights_effective_assets():
 def test_drawdown_known_case():
     pr = pd.Series([0.10, -0.50, 0.20])  # 1.10 -> 0.55 -> 0.66
     assert max_drawdown(pr) == pytest.approx(-0.5)
+
+
+def test_drawdown_first_period_loss():
+    prices = pd.DataFrame({"NVDA": [100.0, 50.0, 55.0]})
+    w = pd.Series({"NVDA": 1.0})
+    pr = portfolio_returns(prices, w)
+    assert max_drawdown(pr) == pytest.approx(-0.5)
+
+
+@pytest.mark.parametrize(
+    "returns,expected",
+    [
+        ([-0.5], -0.5),
+        ([-0.5, 0.1], -0.5),
+        ([-0.5, 0.0], -0.5),
+        ([0.1, -0.5, 0.2], -0.5),  # existing positive-first-return control
+        ([0.1, 0.2], 0.0),
+        ([-1.0, 0.0], -1.0),
+    ],
+)
+def test_drawdown_regression_cases(returns, expected):
+    pr = pd.Series(returns, dtype=float)
+    assert max_drawdown(pr) == pytest.approx(expected)
+
+
+def test_drawdown_synthetic_price_drop_risk_score():
+    prices = pd.DataFrame({"NVDA": [100.0] + [60.0] * 504})
+    w = pd.Series({"NVDA": 1.0})
+    pr = portfolio_returns(prices, w)
+    mdd = max_drawdown(pr)
+    assert mdd == pytest.approx(-0.4)
+    vol = volatility(pr)
+    assert vol == pytest.approx(0.2828427, rel=1e-4)
+    conc = concentration(w)
+    exp = sector_exposure(w)
+    score, level, hits = risk_score(conc, vol, mdd, [], float(exp.max()))
+    assert score == 65
+    assert level == "High"
+    assert any("Worst past fall was -40%" in why for _, why in hits)
 
 
 def test_no_swings_no_volatility():
