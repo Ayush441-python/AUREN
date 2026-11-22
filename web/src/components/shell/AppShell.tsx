@@ -13,10 +13,11 @@ export type NavTab = NavItemKey | string;
 interface AppShellProps {
   children?: React.ReactNode;
   activeTab?: NavTab;
-  onSelectTab?: (tab: any) => void;
+  onSelectTab?: (tab: NavTab) => void;
   portfolioName?: string;
   onNewPortfolio?: () => void;
   onOpenWalletModal?: () => void;
+  onSelectPortfolio?: (weights: Record<string, number>, name: string) => void;
   walletAddress?: string | null;
 }
 
@@ -27,6 +28,7 @@ function ShellInner({
   portfolioName = "Sample: Balanced Multi-Asset",
   onNewPortfolio,
   onOpenWalletModal,
+  onSelectPortfolio,
   walletAddress,
 }: AppShellProps) {
   const { isCollapsed } = useNavigation();
@@ -59,8 +61,9 @@ function ShellInner({
               portfolioName={portfolioName}
               onNewPortfolio={onNewPortfolio}
               onOpenWalletModal={onOpenWalletModal}
+              onSelectPortfolio={onSelectPortfolio}
               walletAddress={walletAddress}
-              activeTab={currentTab as any}
+              activeTab={currentTab as string}
             />
           </div>
         </div>
