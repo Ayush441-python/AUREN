@@ -107,3 +107,14 @@ def test_wallet_endpoint_shape(monkeypatch):
     assert data["portfolio"] == {"NVDA": 1.0}
     assert data["holdings"][0]["ticker"] == "NVDA"
     assert data["total_value"] == 200.0
+
+def test_fractional_weights_normalize_to_exact_boundary():
+    """Regression for #111: 0.3/0.9999999999999999 must not become 0.3000...04."""
+    import api
+    w = api._normalize_and_validate_weights(
+        {"GLD": .3, "COST": .275, "JPM": .2, "XOM": .225})
+    assert w.max() == 0.3
+    # Same result as integer-percent input.
+    w2 = api._normalize_and_validate_weights(
+        {"GLD": 30, "COST": 27.5, "JPM": 20, "XOM": 22.5})
+    assert w.equals(w2)

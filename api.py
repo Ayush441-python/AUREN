@@ -193,7 +193,9 @@ def _normalize_and_validate_weights(weights: Dict[str, float]) -> pd.Series:
             detail="Weights must be positive numbers summing to > 0",
         )
 
-    return w / w.sum()
+    # Round to 12 decimals so float noise from the division cannot push an
+    # exact boundary weight (e.g. 0.3) over a strict scoring threshold.
+    return (w / w.sum()).round(12)
 
 
 def _load_aligned_prices(tickers: list[str], period: str) -> pd.DataFrame:
