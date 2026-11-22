@@ -46,10 +46,12 @@ def ai_report(metrics: dict, base_url: str, api_key: str, model: str,
     headers = {"Content-Type": "application/json"}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
-    
     clean_metrics = _sanitize_for_report(metrics)
     user = SYSTEM + "\n\nPortfolio metrics JSON:\n" + json.dumps(clean_metrics, default=str)
-    reasoning = "gpt-oss" in (model or "") or "groq.com" in (base_url or "")
+    is_groq = "groq.com" in (base_url or "")
+    # Reasoning params apply to gpt-oss models only; standard models on Groq
+    # (llama-*) and non-Groq providers reject include_reasoning/reasoning_effort.
+    reasoning = "gpt-oss" in (model or "").lower()
     payload = {
         "model": model,
         "messages": [{"role": "user", "content": user}],
@@ -57,7 +59,8 @@ def ai_report(metrics: dict, base_url: str, api_key: str, model: str,
     if reasoning:
         # gpt-oss spends tokens on thinking; max_tokens can leave content empty
         payload["max_completion_tokens"] = 4096
-        payload["include_reasoning"] = False
+        if is_groq:
+            payload["include_reasoning"] = False
         payload["temperature"] = 0.6
     else:
         payload["temperature"] = 0.2
@@ -67,7 +70,7 @@ def ai_report(metrics: dict, base_url: str, api_key: str, model: str,
             {"role": "user", "content": json.dumps(clean_metrics, default=str)},
         ]
     effort = setting("LLM_REASONING_EFFORT")
-    if effort:
+    if reasoning and effort:
         payload["reasoning_effort"] = effort
     r = requests.post(base_url.rstrip("/") + "/chat/completions",
                       json=payload, headers=headers, timeout=timeout)
