@@ -154,7 +154,16 @@ function bindEvents() {
   $("portfolio-value").onchange = () => analysis && runAnalysis();
   $("btn-wallet").onclick = importWallet;
   $("wallet-address").onkeydown = (e) => { if (e.key === "Enter") importWallet(); };
-  $("btn-health").onclick = async () => { const up = await checkHealth(); showAlert(up ? null : "Can't reach the server. Check the backend URL and try again."); if (!up) return; if (await loadUniverse()) loadPreset($("preset-select").value in PRESETS ? $("preset-select").value : DEFAULT_PRESET); };
+  $("btn-health").onclick = async () => {
+    const up = await checkHealth();
+    showAlert(up ? null : "Can't reach the server. Check the backend URL and try again.");
+    if (!up) return;
+    if (await loadUniverse()) {
+      refreshTickerChoices();
+      updateTotal();
+      updateWhatIfTotal();
+    }
+  };
   $("wf-add").onclick = () => addRow("wf-inputs", "", "", updateWhatIfTotal);
   $("wf-reset").onclick = cloneToWhatIf;
   $("wf-norm").onclick = () => normalize("wf-inputs", updateWhatIfTotal);
@@ -212,6 +221,19 @@ function tickerOptions(selected) {
   universe.supported_tickers.forEach((t) => (groups[universe.groups[t] || "Other"] ||= []).push(t));
   return `<option value="">Select a ticker</option>` + Object.keys(groups).sort().map((g) =>
     `<optgroup label="${esc(g)}">${groups[g].map((t) => `<option value="${esc(t)}"${t === selected ? " selected" : ""}>${esc(t)}</option>`).join("")}</optgroup>`).join("");
+}
+
+function refreshTickerChoices() {
+  ["assets-inputs", "wf-inputs"].forEach((containerId) => {
+    const el = $(containerId);
+    if (!el) return;
+    el.querySelectorAll(".asset-row").forEach((r) => {
+      const select = r.querySelector("select");
+      if (!select) return;
+      const current = select.value;
+      select.innerHTML = tickerOptions(current);
+    });
+  });
 }
 
 function addRow(containerId, ticker, weight, onChange) {
