@@ -1,3 +1,4 @@
+from unittest.mock import patch
 from fastapi.testclient import TestClient
 from api import app
 
@@ -64,3 +65,61 @@ def test_wallet_invalid_address():
     response = client.post("/wallet", json={"address": "invalid_address"})
     assert response.status_code == 400
     assert "Invalid EVM/Base address" in response.json()["detail"]
+
+def test_wallet_valid():
+    token = "0x" + "2" * 40
+    catalog = [{"symbol": "NVDAc", "contract_address": token, "nav_price": "125"}]
+    with patch("engine.wallet.list_tokenized_stocks", return_value=catalog), patch(
+        "engine.wallet.token_balances", return_value={token: 2.0}
+    ):
+        response = client.post("/wallet", json={"address": "0x" + "1" * 40})
+        assert response.status_code == 200
+        data = response.json()
+        assert data["address"] == "0x" + "1" * 40
+        assert data["holdings_count"] == 1
+        assert len(data["holdings"]) == 1
+        assert data["holdings"][0]["ticker"] == "NVDA"
+        assert data["holdings"][0]["value"] == 250.0
+        assert data["holdings"][0]["supported"] is True
+        assert data["portfolio"] == {"NVDA": 1.0}
+
+def test_wallet_valid_multiple_and_unsupported():
+    token1 = "0x" + "2" * 40
+    token2 = "0x" + "3" * 40
+    token3 = "0x" + "4" * 40
+    catalog = [
+        {"symbol": "NVDAc", "contract_address": token1, "nav_price": "100"},
+        {"symbol": "MSFTc", "contract_address": token2, "nav_price": "100"},
+        {"symbol": "FAKEc", "contract_address": token3, "nav_price": "50"},
+    ]
+    balances = {token1: 1.0, token2: 3.0, token3: 2.0}
+    with patch("engine.wallet.list_tokenized_stocks", return_value=catalog), patch(
+        "engine.wallet.token_balances", return_value=balances
+    ):
+        response = client.post("/wallet", json={"address": "0x" + "1" * 40})
+        assert response.status_code == 200
+        data = response.json()
+        assert data["holdings_count"] == 3
+        # NVDA value = 100, MSFT value = 300, total supported value = 400
+        # FAKE is unsupported (not in SECTORS)
+        assert data["portfolio"] == {"NVDA": 0.25, "MSFT": 0.75}
+
+def test_wallet_empty():
+    token = "0x" + "2" * 40
+    catalog = [{"symbol": "NVDAc", "contract_address": token, "nav_price": "125"}]
+    with patch("engine.wallet.list_tokenized_stocks", return_value=catalog), patch(
+        "engine.wallet.token_balances", return_value={}
+    ):
+        response = client.post("/wallet", json={"address": "0x" + "1" * 40})
+        assert response.status_code == 200
+        data = response.json()
+        assert data["holdings_count"] == 0
+        assert data["holdings"] == []
+        assert data["portfolio"] == {}
+
+def test_wallet_rpc_error():
+    with patch("engine.wallet.list_tokenized_stocks", side_effect=RuntimeError("RPC connection timeout")):
+        response = client.post("/wallet", json={"address": "0x" + "1" * 40})
+        assert response.status_code == 502
+        assert "Error querying on-chain wallet data: RPC connection timeout" in response.json()["detail"]
+
