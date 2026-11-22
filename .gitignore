@@ -36,3 +36,11 @@ desktop.ini
 
 # Logs
 *.log
+
+# Web application
+web/node_modules/
+web/.next/
+web/out/
+web/.vercel/
+web/*.tsbuildinfo
+web/npm-debug.log*

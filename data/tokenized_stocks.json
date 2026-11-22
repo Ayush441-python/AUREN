@@ -1,0 +1,92 @@
+[
+  {
+    "symbol": "NVDAc",
+    "name": "NVIDIA Corp (Tokenized)",
+    "contract_address": "0x1111111111111111111111111111111111111101",
+    "decimals": 18,
+    "nav_price": 135.50,
+    "multiplier": 1.0,
+    "nav_price_updated_at": "2026-11-20T21:00:00Z"
+  },
+  {
+    "symbol": "AAPLc",
+    "name": "Apple Inc (Tokenized)",
+    "contract_address": "0x1111111111111111111111111111111111111102",
+    "decimals": 18,
+    "nav_price": 228.00,
+    "multiplier": 1.0,
+    "nav_price_updated_at": "2026-11-20T21:00:00Z"
+  },
+  {
+    "symbol": "MSFTc",
+    "name": "Microsoft Corp (Tokenized)",
+    "contract_address": "0x1111111111111111111111111111111111111103",
+    "decimals": 18,
+    "nav_price": 420.00,
+    "multiplier": 1.0,
+    "nav_price_updated_at": "2026-11-20T21:00:00Z"
+  },
+  {
+    "symbol": "AMZNc",
+    "name": "Amazon.com Inc (Tokenized)",
+    "contract_address": "0x1111111111111111111111111111111111111104",
+    "decimals": 18,
+    "nav_price": 205.00,
+    "multiplier": 1.0,
+    "nav_price_updated_at": "2026-11-20T21:00:00Z"
+  },
+  {
+    "symbol": "GOOGLc",
+    "name": "Alphabet Inc Class A (Tokenized)",
+    "contract_address": "0x1111111111111111111111111111111111111105",
+    "decimals": 18,
+    "nav_price": 175.00,
+    "multiplier": 1.0,
+    "nav_price_updated_at": "2026-11-20T21:00:00Z"
+  },
+  {
+    "symbol": "METAc",
+    "name": "Meta Platforms Inc (Tokenized)",
+    "contract_address": "0x1111111111111111111111111111111111111106",
+    "decimals": 18,
+    "nav_price": 560.00,
+    "multiplier": 1.0,
+    "nav_price_updated_at": "2026-11-20T21:00:00Z"
+  },
+  {
+    "symbol": "TSLAc",
+    "name": "Tesla Inc (Tokenized)",
+    "contract_address": "0x1111111111111111111111111111111111111107",
+    "decimals": 18,
+    "nav_price": 340.00,
+    "multiplier": 1.0,
+    "nav_price_updated_at": "2026-11-20T21:00:00Z"
+  },
+  {
+    "symbol": "COINc",
+    "name": "Coinbase Global Inc (Tokenized)",
+    "contract_address": "0x1111111111111111111111111111111111111108",
+    "decimals": 18,
+    "nav_price": 310.00,
+    "multiplier": 1.0,
+    "nav_price_updated_at": "2026-11-20T21:00:00Z"
+  },
+  {
+    "symbol": "PLTRc",
+    "name": "Palantir Technologies (Tokenized)",
+    "contract_address": "0x1111111111111111111111111111111111111109",
+    "decimals": 18,
+    "nav_price": 65.00,
+    "multiplier": 1.0,
+    "nav_price_updated_at": "2026-11-20T21:00:00Z"
+  },
+  {
+    "symbol": "TSMc",
+    "name": "Taiwan Semiconductor (Tokenized)",
+    "contract_address": "0x1111111111111111111111111111111111111110",
+    "decimals": 18,
+    "nav_price": 190.00,
+    "multiplier": 1.0,
+    "nav_price_updated_at": "2026-11-20T21:00:00Z"
+  }
+]

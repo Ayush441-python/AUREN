@@ -276,13 +276,13 @@ async function importWallet() {
   try {
     const d = await api("/wallet", { method: "POST", body: { address } });
     const entries = Object.entries(d.portfolio || {});
-    if (!entries.length) return walletMsg("warning", "No supported tokenized stocks found in this wallet.");
+    if (!entries.length) return walletMsg("warning", d.message || "No supported tokenized stocks or crypto found in this wallet.");
     $("assets-inputs").innerHTML = "";
     entries.forEach(([t, w]) => addRow("assets-inputs", t, (w * 100).toFixed(1), onHoldingsEdit));
     $("preset-select").value = "Custom / Edited";
     if (d.total_value > 0) $("portfolio-value").value = Math.max(100, Math.round(d.total_value));
     renderWalletTable(d.holdings || []);
-    walletMsg("success", `Loaded ${entries.length} tokenized stock${entries.length > 1 ? "s" : ""}.`);
+    walletMsg("success", d.message || `Loaded ${entries.length} asset${entries.length > 1 ? "s" : ""}.`);
     runAnalysis();
   } catch (e) { walletMsg("error", `Couldn't read the wallet: ${e.message}`); }
 }

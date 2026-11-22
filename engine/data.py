@@ -3,7 +3,11 @@ import threading
 import time
 
 import pandas as pd
-import yfinance as yf
+
+try:
+    import yfinance as yf
+except ImportError:
+    yf = None
 
 ROOT = pathlib.Path(__file__).parent.parent / "data"
 CACHE = ROOT / "prices.csv"
@@ -17,6 +21,8 @@ _lock = threading.Lock()
 
 
 def _download(field: str, tickers: list[str], period: str) -> pd.DataFrame | None:
+    if yf is None:
+        return None
     try:
         df = yf.download(tickers, period=period, auto_adjust=True,
                          progress=False)[field]
