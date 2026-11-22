@@ -33,6 +33,16 @@ def stress(w: pd.Series, shocks: dict) -> float:
     return float(sum(wt * shock_for(t, shocks) for t, wt in w.items()))
 
 
+def any_shock_active(shocks: dict) -> bool:
+    """True when the user has moved at least one custom shock slider.
+
+    A zero net impact means different things depending on this: untouched
+    sliders should prompt the user to move them, while nonzero shocks that
+    cancel out should be reported as offsetting.
+    """
+    return any(v != 0 for v in shocks.values())
+
+
 def worst_periods(pr: pd.Series) -> dict:
     month = (1 + pr).rolling(21).apply(np.prod, raw=True) - 1
     return {"worst_day": float(pr.min()), "worst_month": float(month.min())}
