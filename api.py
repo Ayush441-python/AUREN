@@ -327,7 +327,7 @@ def inspect_wallet(payload: WalletRequest):
     rpc = payload.rpc_url or setting("BASE_RPC_URL") or BASE_RPC
 
     try:
-        holdings = wallet_holdings(payload.address, rpc_url=rpc)
+        holdings = wallet_holdings(payload.address, supported=set(SECTORS), rpc_url=rpc)["rows"]
     except Exception as e:
         logger.error(f"Error querying wallet: {e}")
         raise HTTPException(
@@ -335,7 +335,8 @@ def inspect_wallet(payload: WalletRequest):
             detail=f"Error querying on-chain wallet data: {str(e)}",
         )
 
-    portfolio = holdings_to_portfolio(holdings)
+    frame, _, _ = holdings_to_portfolio(holdings)
+    portfolio = dict(zip(frame["ticker"], frame["weight"] / 100))
 
     return {
         "address": payload.address,
