@@ -32,10 +32,16 @@ def load_env() -> None:
     parsed.update(_parse_env_file(Path.cwd() / ".env"))
     for key, val in parsed.items():
         os.environ[key] = val
-    # Defaults so Groq works once LLM_API_KEY is set
-    os.environ.setdefault("LLM_BASE_URL", GROQ_BASE_URL)
-    os.environ.setdefault("LLM_MODEL", GROQ_MODEL)
-    os.environ.setdefault("LLM_REASONING_EFFORT", "low")
+    # Defaults so Groq works once LLM_API_KEY is set. Skip a default when the
+    # key is provided via Streamlit secrets, otherwise the default would shadow
+    # the secret in setting() and e.g. send a third-party API key to Groq.
+    for key, default in (
+        ("LLM_BASE_URL", GROQ_BASE_URL),
+        ("LLM_MODEL", GROQ_MODEL),
+        ("LLM_REASONING_EFFORT", "low"),
+    ):
+        if secret(key) is None:
+            os.environ.setdefault(key, default)
     try:
         from dotenv import load_dotenv
         load_dotenv(ROOT / ".env", override=True)
