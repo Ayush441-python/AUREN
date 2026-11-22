@@ -23,6 +23,7 @@ export default function WorkstationPage() {
   const [builderModalOpen, setBuilderModalOpen] = useState(false);
   const [walletModalOpen, setWalletModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Real Web3 EVM Hook
   const {
@@ -52,20 +53,17 @@ export default function WorkstationPage() {
     weights: Record<string, number>,
     name: string
   ) => {
-    setPortfolioName(name);
     setLoading(true);
+    setErrorMessage(null);
 
     try {
       const live = await calculateRisk(weights);
       if (live && live.score !== undefined) {
         setData(live);
+        setPortfolioName(name);
       }
-    } catch (err) {
-      // Create recalculated representation locally if offline
-      setData({
-        ...data,
-        normalized_weights: weights,
-      });
+    } catch (err: any) {
+      setErrorMessage(err?.message || "Failed to calculate risk analysis for portfolio");
     } finally {
       setLoading(false);
       setActiveTab("overview");
@@ -74,13 +72,14 @@ export default function WorkstationPage() {
 
   const handleSimulate = async (newWeights: Record<string, number>) => {
     setLoading(true);
+    setErrorMessage(null);
     try {
       const live = await calculateRisk(newWeights);
       if (live && live.score !== undefined) {
         setData(live);
       }
-    } catch (e) {
-      // keep current data
+    } catch (e: any) {
+      setErrorMessage(e?.message || "Failed to simulate custom stress scenario");
     } finally {
       setLoading(false);
     }
@@ -95,6 +94,24 @@ export default function WorkstationPage() {
       onNewPortfolio={() => setBuilderModalOpen(true)}
       onOpenWalletModal={() => setWalletModalOpen(true)}
     >
+      {/* Request Error Alert Banner */}
+      {errorMessage && (
+        <div className="mb-6 flex items-center justify-between rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs text-rose-400 shadow-sm animate-in fade-in duration-150">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-rose-300">Request Error:</span>
+            <span>{errorMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setErrorMessage(null)}
+            className="ml-4 rounded px-1.5 py-0.5 text-xs text-rose-400 hover:bg-rose-500/20 hover:text-rose-200 transition"
+            aria-label="Dismiss error"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Dynamic Tab Views */}
       {activeTab === "overview" && (
         <OverviewView data={data} onNavigateTab={setActiveTab} />
