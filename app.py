@@ -472,9 +472,11 @@ with tab_conc:
     with st.container(border=True):
         st.plotly_chart(fig)
 
-    if c["top_weight"] > 0.30:
+    over_30 = c.get("exceeds_30pct", c["top_weight"] > 0.30)
+    if over_30:
+        top_disp = f"{c['top_weight']:.3%}".rstrip("0").rstrip(".") + "%" if round(c["top_weight"], 3) <= 0.30 else f"{c['top_weight']:.1%}"
         st.markdown(callout(
-            f"<b>Concentration Warning:</b> <b>{c['top_asset']}</b> represents {c['top_weight']:.1%} of the portfolio, "
+            f"<b>Concentration Warning:</b> <b>{c['top_asset']}</b> represents {top_disp} of the portfolio, "
             f"exceeding the 30% threshold. Severe single-asset dependence (+20 risk pts).", danger=True),
             unsafe_allow_html=True)
     else:

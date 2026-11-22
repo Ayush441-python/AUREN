@@ -10,12 +10,14 @@ def sector_exposure(w: pd.Series) -> pd.Series:
 
 def concentration(w: pd.Series) -> dict:
     hhi = float((w ** 2).sum())  # 1.0 = everything in one asset
+    top_w = float(w.max())
     return {
         "top_asset": w.idxmax(),
-        "top_weight": float(w.max()),
+        "top_weight": top_w,
         "top3_weight": float(w.nlargest(3).sum()),
         "hhi": hhi,
         "effective_assets": 1 / hhi,  # "you really own this many assets"
+        "exceeds_30pct": bool(top_w > 0.30),
     }
 
 

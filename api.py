@@ -333,7 +333,7 @@ def compute_risk(payload: PortfolioRequest):
     result = {
         "score": score,
         "level": level,
-        "normalized_weights": {k: round(v, 4) for k, v in w.to_dict().items()},
+        "normalized_weights": {k: round(v, 6) for k, v in w.to_dict().items()},
         "reasons": [why for _, why in hits],
         "hits": hits,
         "dates": dates,
@@ -342,10 +342,11 @@ def compute_risk(payload: PortfolioRequest):
         "correlation_matrix": corr_matrix,
         "concentration": {
             "top_asset": conc["top_asset"],
-            "top_weight": round(conc["top_weight"], 4),
-            "top3_weight": round(conc["top3_weight"], 4),
+            "top_weight": round(conc["top_weight"], 6),
+            "top3_weight": round(conc["top3_weight"], 6),
             "hhi": round(conc["hhi"], 4),
             "effective_assets": round(conc["effective_assets"], 2),
+            "exceeds_30pct": bool(conc.get("exceeds_30pct", conc["top_weight"] > 0.30)),
         },
         "volatility": round(vol, 4),
         "max_drawdown": round(mdd, 4),

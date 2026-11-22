@@ -10,7 +10,7 @@ RULE_TABLE = [
 
 def risk_score(conc: dict, vol: float, mdd: float, pairs: list, sector_max: float):
     rules = [
-        (conc["top_weight"] > 0.30, 20,
+        (conc.get("exceeds_30pct", conc["top_weight"] > 0.30), 20,
          f"Largest holding is {conc['top_weight']:.0%} (over 30%)"),
         (conc["effective_assets"] < 4, 15,
          f"Behaves like only {conc['effective_assets']:.1f} assets"),

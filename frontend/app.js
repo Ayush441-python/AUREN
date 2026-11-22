@@ -414,10 +414,20 @@ function renderConcentration(A, size) {
   const vals = sorted.map((s) => +(s[1] * 100).toFixed(1));
   chart("concChart", barConfig(sorted.map((s) => s[0]), vals, (v) => v > 30, 30, "30% rule", Math.max(35, Math.max(...vals) * 1.2)));
 
-  const over = c.top_weight > 0.3;
+  const over = c.exceeds_30pct !== undefined ? Boolean(c.exceeds_30pct) : c.top_weight > 0.3;
   $("c-warn").className = `callout ${over ? "danger" : "good"}`;
+  const topText = (() => {
+    const p = c.top_weight * 100;
+    if (over && p <= 30.0) {
+      for (let d = 2; d <= 4; d++) {
+        const s = p.toFixed(d);
+        if (parseFloat(s) > 30.0) return `${s}%`;
+      }
+    }
+    return pct(c.top_weight);
+  })();
   $("c-warn").innerHTML = over
-    ? `<strong>${esc(c.top_asset)}</strong> makes up ${pct(c.top_weight)} of the portfolio, above the 30% limit. This adds 20 risk points.`
+    ? `<strong>${esc(c.top_asset)}</strong> makes up ${topText} of the portfolio, above the 30% limit. This adds 20 risk points.`
     : `No single holding is above 30%. The largest, <strong>${esc(c.top_asset)}</strong>, is ${pct(c.top_weight)}.`;
   $("c-shock").innerHTML = `If ${esc(c.top_asset)} fell 20%, the portfolio would lose about <strong>${pct(c.top_weight * 0.2)} (${usd(c.top_weight * 0.2 * size)})</strong> from that holding alone. This is simple arithmetic, not a forecast.`;
 
