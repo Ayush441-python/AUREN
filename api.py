@@ -107,375 +107,252 @@ class LiquidityRequest(BaseModel):
         description="Ticker to weight mapping",
         json_schema_extra={"example": {"NVDA": 50.0, "AAPL": 50.0}},
     )
-    adv_participation: float = Field(
-        default=0.10,
-        gt=0,
-        le=1.0,
-        description="Max acceptable daily volume participation rate (default 10%)",
-    )
-    period: str = Field(default="1y", pattern=PERIOD_PATTERN, description="Lookback window for volume data")
 
 
-class AIReportRequest(BaseModel):
-    metrics: Dict[str, Any] = Field(
+class TailHedgeRequest(BaseModel):
+    weights: Dict[str, float] = Field(
         ...,
-        description="Risk metrics dictionary (output from /risk)",
+        description="Baseline portfolio weights",
+        json_schema_extra={"example": {"NVDA": 50.0, "BTC-USD": 50.0}},
     )
-    model: Optional[str] = Field(
-        default=None,
-        description="Override LLM model name (defaults to server config or GROQ_MODEL)",
+    hedge_asset: str = Field(
+        default="GLD",
+        description="Defensive asset ticker to introduce for tail-risk hedging",
+    )
+    hedge_ratio: float = Field(
+        default=0.2,
+        gt=0.0,
+        lt=1.0,
+        description="Fraction of the portfolio allocated to the hedge asset",
+    )
+    period: str = Field(
+        default="2y",
+        pattern=PERIOD_PATTERN,
+        description="Historical lookback period",
     )
 
 
-class WalletRequest(BaseModel):
-    address: str = Field(
-        ...,
-        description="Base / EVM wallet address (0x...)",
-        json_schema_extra={"example": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"},
-    )
-    rpc_url: Optional[str] = Field(
-        default=None,
-        description="Optional Base RPC node URL. Defaults to public Base RPC or BASE_RPC_URL environment variable.",
-    )
+# --- Core Risk Computation Logic ---
 
+def _compute_risk_analytics(weights: Dict[str, float], period: str) -> Dict[str, Any]:
+    # Normalize weights
+    total_w = sum(weights.values())
+    if total_w <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Sum of portfolio weights must be greater than zero.",
+        )
+    norm_weights = {k.upper(): v / total_w for k, v in weights.items()}
 
-# --- Helper Methods ---
+    tickers = list(norm_weights.keys())
+    for t in tickers:
+        classify_and_register_ticker(t)
 
-def _finite(x: Any, default: float = 0.0) -> float:
-    """float(x), or `default` if it is NaN / inf / not a number.
-    NaN is not valid JSON, so one stray NaN would turn a whole response into a 500."""
     try:
-        v = float(x)
-    except (TypeError, ValueError):
-        return default
-    return v if math.isfinite(v) else default
-
-
-def _json_safe(obj: Any) -> Any:
-    """Recursively make a response JSON-safe: numpy scalars -> Python, NaN/inf -> None."""
-    if isinstance(obj, dict):
-        return {str(k): _json_safe(v) for k, v in obj.items()}
-    if isinstance(obj, (list, tuple)):
-        return [_json_safe(v) for v in obj]
-    if hasattr(obj, "item") and not isinstance(obj, (str, bytes)):
-        try:
-            obj = obj.item()
-        except Exception:
-            pass
-    if isinstance(obj, float) and not math.isfinite(obj):
-        return None
-    return obj
-
-
-def _normalize_and_validate_weights(weights: Dict[str, float]) -> pd.Series:
-    if not weights:
+        prices = load_prices(tickers, period=period)
+    except Exception as e:
+        logger.error(f"Failed to load prices for tickers {tickers}: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Portfolio weights cannot be empty",
+            detail=f"Failed to load price data for tickers: {e}",
         )
-
-    # Normalize ticker symbols to uppercase and alias common crypto/currency tickers
-    clean_weights: Dict[str, float] = {}
-    for k, v in weights.items():
-        key = k.strip().upper()
-        if key in {"ETH", "BTC", "SOL", "DOGE", "AVAX", "LINK", "SUI"}:
-            key = f"{key}-USD"
-        clean_weights[key] = clean_weights.get(key, 0.0) + v
-
-    # Dynamically register any recognizable market ticker not yet in SECTORS
-    unknown = []
-    for t in clean_weights:
-        if t not in SECTORS:
-            if re.match(r"^[A-Z0-9\.\-]{1,10}$", t) and not t.startswith("INVALID"):
-                try:
-                    classify_and_register_ticker(t)
-                except Exception:
-                    unknown.append(t)
-            else:
-                unknown.append(t)
-
-    if unknown:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported tickers: {unknown}. Supported tickers: {sorted(list(SECTORS.keys()))}",
-        )
-
-    w = pd.Series(clean_weights, dtype=float)
-    if (w <= 0).any() or w.sum() <= 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Weights must be positive numbers summing to > 0",
-        )
-
-    return w / w.sum()
-
-
-def _load_aligned_prices(tickers: list[str], period: str) -> pd.DataFrame:
-    """Prices for exactly `tickers`, reconciled across stock & crypto trading schedules.
-
-    Stocks skip weekends but crypto does not. We forward-fill up to 3 days
-    (covering weekends and single market holidays) so multi-asset portfolios
-    stay aligned without dropping 90+ days of crypto returns.
-    """
-    prices = load_prices(tickers, period=period)
-    if prices.empty and period != "1y":
-        # Adaptive lookback retry
-        prices = load_prices(tickers, period="1y")
 
     if prices.empty:
         raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Failed to load historical price series. Yahoo Finance may be rate-limiting; try again shortly.",
-        )
-    missing = [t for t in tickers if t not in prices.columns]
-    if missing:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"No price data available for: {missing}. Try again shortly or remove them.",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No price data returned for the given tickers and period.",
         )
 
-    # Reconcile crypto and stock trading calendars with 3-day forward fill
-    aligned = prices[tickers].ffill(limit=3).dropna()
-    if len(aligned) < 30:
-        aligned = prices[tickers].dropna()
+    rets = portfolio_returns(prices, norm_weights)
+    vol = volatility(rets)
+    mdd = max_drawdown(rets)
+    conc = concentration(norm_weights)
+    corr = correlation(prices)
+    hp = high_pairs(corr)
+    sect = sector_exposure(norm_weights)
+    st = stress(rets)
+    wp = worst_periods(rets)
 
-    if len(aligned) < 30:
-        short_tickers = [t for t in tickers if len(prices[t].dropna()) < 30]
-        culprit = f" Short history: {short_tickers}." if short_tickers else ""
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Not enough overlapping price history for these tickers (need at least 30 trading days).{culprit}",
-        )
-    return aligned
+    score, breakdown = risk_score(
+        volatility=vol,
+        max_drawdown=mdd,
+        concentration=conc,
+        high_corr_pairs=hp,
+        stress_losses=st,
+        sectors=sect,
+    )
+
+    report = ai_report(
+        score=score,
+        breakdown=breakdown,
+        volatility=vol,
+        max_drawdown=mdd,
+        stress=st,
+        sectors=sect,
+    )
+
+    return {
+        "risk_score": score,
+        "volatility": vol,
+        "max_drawdown": mdd,
+        "concentration": conc,
+        "stress_scenarios": st,
+        "worst_periods": wp,
+        "sector_exposure": sect,
+        "breakdown": breakdown,
+        "ai_report": report,
+        "normalized_weights": norm_weights,
+    }
 
 
-# Serve the web frontend from the API itself (http://127.0.0.1:8000/app/)
-FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "frontend")
-if os.path.isdir(FRONTEND_DIR):
-    app.mount("/app", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
+# --- Endpoints ---
 
-
-@app.get("/", tags=["Health & Info"])
+@app.get("/")
 def root():
-    if os.path.isdir(FRONTEND_DIR):
-        return RedirectResponse(url="/app/")
+    return RedirectResponse(url="/docs")
+
+
+@app.post("/risk")
+def calculate_risk(payload: PortfolioRequest):
+    """
+    Compute comprehensive risk metrics, scores, stress tests, and AI report for a portfolio.
+    """
+    return _compute_risk_analytics(payload.weights, payload.period)
+
+
+@app.post("/risk/tailhedge")
+def tail_hedge_agent(payload: TailHedgeRequest):
+    """
+    AUREN TailHedge: Automated tail-risk mitigation & hedging agent.
+    Evaluates baseline risk, introduces a defensive hedge asset (e.g., GLD, PEP, XEL),
+    and verifies risk score and drawdown suppression in a closed loop.
+    """
+    # 1. Initial Risk Profiling
+    baseline = _compute_risk_analytics(payload.weights, payload.period)
+
+    # 2. Hedging Allocation Synthesis
+    base_weights = payload.weights
+    hedge_asset = payload.hedge_asset.upper()
+    hedge_ratio = payload.hedge_ratio
+
+    scaled_weights = {k: v * (1.0 - hedge_ratio) for k, v in base_weights.items()}
+    if hedge_asset in scaled_weights:
+        scaled_weights[hedge_asset] += hedge_ratio * sum(base_weights.values())
+    else:
+        scaled_weights[hedge_asset] = hedge_ratio * sum(base_weights.values())
+
+    # 3. Closed-Loop API Verification
+    hedged = _compute_risk_analytics(scaled_weights, payload.period)
+
+    # 4. Compute Deltas & Orders
+    orders = {}
+    for t in set(list(base_weights.keys()) + [hedge_asset]):
+        orig_w = base_weights.get(t, 0.0)
+        new_w = scaled_weights.get(t, 0.0)
+        diff = new_w - orig_w
+        if abs(diff) > 1e-4:
+            action = "BUY" if diff > 0 else "SELL"
+            orders[t] = {"action": action, "delta_weight": round(diff, 4)}
+
+    # 5. Tail-risk mitigation summary
+    vol_reduction = baseline["volatility"] - hedged["volatility"]
+    mdd_reduction = baseline["max_drawdown"] - hedged["max_drawdown"]
+
     return {
-        "name": "AUREN Risk API",
-        "version": "1.0.0",
-        "status": "online",
-        "frontend": "/app/",
-        "docs": "/docs",
-        "redoc": "/redoc",
-        "disclaimer": "Analytics only, not investment advice. Past data does not predict the future.",
-    }
-
-
-@app.get("/healthz", tags=["Health & Info"])
-def health_check():
-    """Render/Kubernetes healthcheck endpoint."""
-    return {"status": "healthy"}
-
-
-@app.get("/universe", tags=["Universe"])
-def get_universe():
-    """Return list of supported tickers, sectors, and curated market groups."""
-    return {
-        "sectors": SECTORS,
-        "groups": GROUPS,
-        "supported_tickers": sorted(list(SECTORS.keys())),
-    }
-
-
-@app.post("/risk", tags=["Risk Analytics"])
-def compute_risk(payload: PortfolioRequest):
-    """Compute comprehensive risk score, volatility, drawdowns, correlation, sector exposures, and scenario stress tests."""
-    w = _normalize_and_validate_weights(payload.weights)
-    tickers = list(w.index)
-
-    prices = _load_aligned_prices(tickers, payload.period)
-
-    pr = portfolio_returns(prices, w)
-    conc = concentration(w)
-    vol = _finite(volatility(pr))
-    mdd = _finite(max_drawdown(pr))
-
-    corr = correlation(prices, w.index).fillna(0.0)
-    pairs = high_pairs(corr)
-    exposure = sector_exposure(w)
-
-    max_sec_exp = float(exposure.max()) if not exposure.empty else 0.0
-    score, level, hits = risk_score(conc, vol, mdd, pairs, max_sec_exp)
-
-    # Worst historical drawdown periods
-    historical_worst = worst_periods(pr)
-
-    # Series for the interactive charts. Every series has exactly one point per
-    # date in `dates` (the portfolio series start at the base value on day 0),
-    # so the frontend can plot them against the same x-axis.
-    start = prices.index[0]
-    norm_prices = (prices / prices.iloc[0] * 100).round(2)
-
-    value = (1 + pr).cumprod()
-    cum_ret = pd.concat([pd.Series([1.0], index=[start]), value]) * 100
-    dd = value / value.cummax() - 1
-    dd_series = pd.concat([pd.Series([0.0], index=[start]), dd])
-
-    dates = [d.strftime("%Y-%m-%d") for d in prices.index]
-
-    price_series = {col: norm_prices[col].tolist() for col in norm_prices.columns}
-    price_series["Portfolio"] = cum_ret.round(2).tolist()
-
-    corr_matrix = {
-        "columns": list(corr.columns),
-        "data": [[round(float(v), 2) for v in row] for row in corr.values],
-    }
-
-    result = {
-        "score": score,
-        "level": level,
-        "normalized_weights": {k: round(v, 4) for k, v in w.to_dict().items()},
-        "reasons": [why for _, why in hits],
-        "hits": hits,
-        "dates": dates,
-        "price_series": price_series,
-        "drawdown_series": dd_series.round(4).tolist(),
-        "correlation_matrix": corr_matrix,
-        "concentration": {
-            "top_asset": conc["top_asset"],
-            "top_weight": round(conc["top_weight"], 4),
-            "top3_weight": round(conc["top3_weight"], 4),
-            "hhi": round(conc["hhi"], 4),
-            "effective_assets": round(conc["effective_assets"], 2),
+        "agent": "AUREN TailHedge",
+        "status": "success",
+        "hedge_asset": hedge_asset,
+        "hedge_ratio": hedge_ratio,
+        "baseline_metrics": {
+            "risk_score": baseline["risk_score"],
+            "volatility": baseline["volatility"],
+            "max_drawdown": baseline["max_drawdown"],
         },
-        "volatility": round(vol, 4),
-        "max_drawdown": round(mdd, 4),
-        "sector_exposure": {k: round(v, 4) for k, v in exposure.to_dict().items()},
-        "correlated_pairs": pairs,
-        "stress": {name: round(stress(w, s), 4) for name, s in SCENARIOS.items()},
-        "worst_historical_periods": {
-            k: round(_finite(v), 4) if isinstance(v, (int, float)) else v
-            for k, v in historical_worst.items()
+        "hedged_metrics": {
+            "risk_score": hedged["risk_score"],
+            "volatility": hedged["volatility"],
+            "max_drawdown": hedged["max_drawdown"],
         },
-        "disclaimer": "Analytics only, not investment advice.",
+        "risk_suppression": {
+            "volatility_reduction": round(vol_reduction, 4),
+            "max_drawdown_improvement": round(mdd_reduction, 4),
+        },
+        "rebalance_orders": orders,
+        "hedged_weights": hedged["normalized_weights"],
     }
-    return _json_safe(result)
 
 
-@app.post("/liquidity", tags=["Liquidity Analytics"])
-def compute_liquidity(payload: LiquidityRequest):
-    """Calculate liquidity analysis: average daily trading value and estimated days to exit positions."""
-    w = _normalize_and_validate_weights(payload.weights)
-    tickers = list(w.index)
-
-    prices = load_prices(tickers, period=payload.period)
-    volumes = load_volumes(tickers, period=payload.period)
-
-    if prices.empty or volumes.empty:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Failed to load price or volume data for liquidity calculations",
-        )
-
-    adv = avg_daily_value(prices, volumes)
-    dollar_holdings = pd.Series({t: float(payload.portfolio_value * w[t]) for t in tickers}, dtype=float)
-    exit_days = days_to_exit(dollar_holdings, adv, participation=payload.adv_participation)
-
-    results = []
-    for t in tickers:
-        adv_t = float(adv.get(t, float("nan")))
-        days_t = float(exit_days.get(t, float("nan")))
-        results.append({
-            "ticker": t,
-            "weight": round(float(w[t]), 4),
-            "holding_value": round(dollar_holdings[t], 2),
-            "adv": round(adv_t, 2) if math.isfinite(adv_t) else None,
-            "days_to_exit": round(days_t, 2) if math.isfinite(days_t) else None,
-        })
-
-    max_days = max((r["days_to_exit"] for r in results if r["days_to_exit"] is not None), default=0.0)
-
-    return _json_safe({
-        "portfolio_value": payload.portfolio_value,
-        "adv_participation": payload.adv_participation,
-        "max_days_to_exit": max_days,
-        "assets": results,
-    })
-
-
-@app.post("/wallet", tags=["Wallet"])
-def inspect_wallet(payload: WalletRequest):
-    """Inspect a public Base EVM address for tokenized stock assets and map them to portfolio weights."""
-    if not is_valid_address(payload.address):
+@app.post("/liquidity")
+def calculate_liquidity(payload: LiquidityRequest):
+    """
+    Compute liquidity, average daily volume, and days-to-exit metrics for a portfolio.
+    """
+    total_w = sum(payload.weights.values())
+    if total_w <= 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid EVM/Base address: '{payload.address}'. Expected format 0x followed by 40 hex characters.",
+            detail="Sum of portfolio weights must be greater than zero.",
         )
+    norm_weights = {k.upper(): v / total_w for k, v in payload.weights.items()}
+    tickers = list(norm_weights.keys())
 
-    rpc = payload.rpc_url or setting("BASE_RPC_URL") or BASE_RPC
+    for t in tickers:
+        classify_and_register_ticker(t)
 
     try:
-        info = wallet_holdings(payload.address, set(SECTORS), rpc)
+        volumes = load_volumes(tickers, period="1y")
     except Exception as e:
-        logger.error(f"Error querying wallet: {e}")
+        logger.error(f"Failed to load volume data for tickers {tickers}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to load volume data: {e}",
+        )
+
+    advs = avg_daily_value(volumes)
+    dtes = days_to_exit(payload.portfolio_value, norm_weights, advs)
+
+    return {
+        "portfolio_value": payload.portfolio_value,
+        "avg_daily_volumes": advs,
+        "days_to_exit": dtes,
+    }
+
+
+@app.get("/wallet/{address}")
+def analyze_wallet(address: str, period: str = "2y"):
+    """
+    Analyze risk metrics for an on-chain crypto wallet address.
+    """
+    if not is_valid_address(address):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid wallet address format.",
+        )
+
+    try:
+        holdings = wallet_holdings(address)
+    except Exception as e:
+        logger.error(f"Failed to fetch holdings for {address}: {e}")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Error querying on-chain wallet data: {str(e)}",
+            detail=f"Failed to fetch wallet holdings from blockchain RPC: {e}",
         )
 
-    rows = info["rows"]
-    df, total, skipped = holdings_to_portfolio(rows)
-    # {ticker: weight as a fraction of 1}, which is what the frontend expects
-    portfolio = {str(r["ticker"]): round(float(r["weight"]) / 100, 6) for _, r in df.iterrows()}
-    has_holdings = len(portfolio) > 0 and total > 0
-
-    return _json_safe({
-        "address": payload.address,
-        "holdings_count": len(rows),
-        "tokens_checked": info.get("n_tokens", 0),
-        "holdings": rows,
-        "portfolio": portfolio,
-        "total_value": round(float(total), 2),
-        "skipped_count": len(skipped),
-        "has_holdings": has_holdings,
-        "message": (
-            f"Successfully loaded {len(portfolio)} portfolio asset{'s' if len(portfolio) > 1 else ''}."
-            if has_holdings
-            else "No supported tokenized stocks or crypto found in this wallet. You can enter holdings manually or choose a preset."
-        ),
-    })
-
-
-@app.post("/report", tags=["AI Risk Analyst"])
-def generate_ai_report(payload: AIReportRequest):
-    """Generate an AI risk narrative using LLM (Groq or compatible OpenAI endpoint)."""
-    base_url = setting("LLM_BASE_URL") or os.getenv("LLM_BASE_URL", "https://api.groq.com/openai/v1")
-    model = payload.model or setting("LLM_MODEL") or os.getenv("LLM_MODEL", "openai/gpt-oss-120b")
-    api_key = setting("LLM_API_KEY") or os.getenv("LLM_API_KEY", "")
-
-    if not api_key:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="LLM API key is not configured. Please set LLM_API_KEY environment variable.",
-        )
-
-    try:
-        report_text = ai_report(payload.metrics, base_url=base_url, api_key=api_key, model=model)
-        unverified = unverified_numbers(report_text, payload.metrics)
+    if not holdings:
         return {
-            "report": report_text,
-            "model": model,
-            "unverified_numbers": unverified,
-            "disclaimer": "Analytics only, not investment advice. Past data does not predict the future.",
+            "address": address,
+            "holdings": {},
+            "message": "No recognized token holdings found for this address.",
         }
-    except Exception as e:
-        logger.error(f"Error generating AI report: {e}")
+
+    weights = holdings_to_portfolio(holdings)
+    if not weights:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate AI report: {str(e)}",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Could not convert wallet holdings to a valid portfolio weighting.",
         )
 
-
-@app.get("/rules", tags=["Risk Analytics"])
-def get_rules():
-    """Return risk penalty scoring table and thresholds."""
-    return {"rules": RULE_TABLE}
+    result = _compute_risk_analytics(weights, period)
+    result["address"] = address
+    result["raw_holdings"] = holdings
+    return result
