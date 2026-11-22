@@ -12,7 +12,7 @@ from engine.metrics import (concentration, portfolio_returns, volatility,
                             max_drawdown, correlation, high_pairs, sector_exposure)
 from engine.report import ai_report, unverified_numbers
 from engine.score import risk_score, RULE_TABLE
-from engine.stress import SCENARIOS, stress, worst_periods
+from engine.stress import SCENARIOS, any_shock_active, stress, worst_periods
 from engine.universe import GROUPS, SECTORS
 from engine.wallet import (BASE_RPC, is_valid_address, wallet_holdings,
                            holdings_to_portfolio)
@@ -642,6 +642,10 @@ with tab_stress:
             st.markdown(callout(
                 f"Under this custom shock, your portfolio gains <b>{custom_impact:+.1%}</b> "
                 f"(a rise of <b>${custom_dollar:,.0f}</b>)."), unsafe_allow_html=True)
+        elif any_shock_active(custom_shocks):
+            st.markdown(callout(
+                "The selected sector shocks offset each other, so the net impact is <b>0.0%</b>.",
+                muted=True), unsafe_allow_html=True)
         else:
             st.markdown(callout("Move the sliders to see hypothetical stress test impact.", muted=True), unsafe_allow_html=True)
 
