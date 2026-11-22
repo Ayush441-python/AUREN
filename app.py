@@ -158,8 +158,9 @@ def analyze(w: pd.Series):
     vol, mdd = volatility(pr), max_drawdown(pr)
     value = (1 + pr).cumprod()
     drawdown = value / value.cummax() - 1
-    corr = correlation(prices, w.index)
-    pairs = high_pairs(corr)
+    rets = prices[list(w.index)].dropna().pct_change().dropna()
+    corr = rets.corr()
+    pairs = high_pairs(corr, returns=rets)
     exposure = sector_exposure(w)
     periods = worst_periods(pr)
     max_sector_val = float(exposure.max()) if not exposure.empty else 0.0
