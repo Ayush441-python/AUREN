@@ -14,8 +14,8 @@ from engine.data import CACHE, VOL_CACHE, load_prices, load_volumes  # noqa: E40
 from engine.universe import SECTORS  # noqa: E402
 
 tickers = list(SECTORS)
-prices = load_prices(tickers)
-volumes = load_volumes(tickers)
+prices = load_prices(tickers, require_download=True)
+volumes = load_volumes(tickers, require_download=True)
 if prices.empty or volumes.empty:
     sys.exit("Download failed (Yahoo may be rate-limiting). Existing cache left untouched.")
 
