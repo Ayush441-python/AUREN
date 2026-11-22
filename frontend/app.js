@@ -436,7 +436,10 @@ function renderHistory(A) {
 
   chart("ddChart", {
     type: "line",
-    data: { labels, datasets: [{ label: "Drawdown", data: thin(A.drawdown_series || [], step).map((v) => v * 100), borderColor: C.gold, backgroundColor: "rgba(214,178,94,0.14)", fill: true, borderWidth: 1.8, pointRadius: 0, tension: 0.1 }] },
+    // Drawdown keeps the full series: thinning can drop a single-session dip
+    // entirely while max_drawdown still reports it (#190). The x-axis already
+    // limits displayed ticks, so full resolution costs nothing visible.
+    data: { labels: dates, datasets: [{ label: "Drawdown", data: (A.drawdown_series || []).map((v) => v * 100), borderColor: C.gold, backgroundColor: "rgba(214,178,94,0.14)", fill: true, borderWidth: 1.8, pointRadius: 0, tension: 0.1 }] },
     options: lineOptions({ pct: true, min: A.max_drawdown ? A.max_drawdown * 120 : undefined, max: 2 }),
   });
 }
