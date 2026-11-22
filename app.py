@@ -8,7 +8,7 @@ import streamlit as st
 from engine.data import load_prices, load_volumes
 from engine.env import load_env, setting
 from engine.liquidity import avg_daily_value, days_to_exit
-from engine.metrics import (concentration, portfolio_returns, volatility,
+from engine.metrics import (concentration, portfolio_returns, volatility, weight_squared_terms,
                             max_drawdown, correlation, high_pairs, sector_exposure)
 from engine.report import ai_report, unverified_numbers
 from engine.score import risk_score, RULE_TABLE
@@ -490,7 +490,7 @@ with tab_conc:
         unsafe_allow_html=True)
 
     with st.expander("Mathematical derivation (HHI & Effective Assets)"):
-        terms = " + ".join(f"{w:.2f}²" for w in weights.sort_values(ascending=False))
+        terms = weight_squared_terms(weights)
         st.markdown(
             f"**Herfindahl-Hirschman Index (HHI):**\n"
             f"$$\\text{{HHI}} = \\sum w_i^2 = {terms} = \\mathbf{{{c['hhi']:.4f}}}$$\n\n"
