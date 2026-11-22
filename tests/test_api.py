@@ -107,3 +107,40 @@ def test_wallet_endpoint_shape(monkeypatch):
     assert data["portfolio"] == {"NVDA": 1.0}
     assert data["holdings"][0]["ticker"] == "NVDA"
     assert data["total_value"] == 200.0
+
+
+def test_concentration_30pct_rule_boundary_agreement(monkeypatch):
+    import api as api_module
+    import pandas as pd
+
+    tickers = ["NVDA", "COST", "MSFT", "XOM"]
+    prices = pd.DataFrame(
+        {ticker: range(100 + i, 130 + i) for i, ticker in enumerate(tickers)},
+        index=pd.bdate_range("2026-01-02", periods=30),
+    )
+    monkeypatch.setattr(api_module, "_load_aligned_prices", lambda *args, **kwargs: prices)
+
+    # 1. Exact 30% boundary must remain unflagged (no 20-point penalty, exceeds_30pct=False)
+    w_30 = dict(zip(tickers, [30.0, 24.0, 23.0, 23.0]))
+    res_30 = api_module.compute_risk(api_module.PortfolioRequest(weights=w_30))
+    hit_30 = any(n == 20 and why.startswith("Largest holding") for n, why in res_30["hits"])
+    assert hit_30 is False
+    assert res_30["concentration"]["exceeds_30pct"] is False
+    assert res_30["concentration"]["top_weight"] == 0.3
+
+    # 2. 30.004% slightly above boundary must flag consistently in both score and concentration
+    w_30_004 = dict(zip(tickers, [30.004, 24.0, 23.0, 22.996]))
+    res_30_004 = api_module.compute_risk(api_module.PortfolioRequest(weights=w_30_004))
+    hit_30_004 = any(n == 20 and why.startswith("Largest holding") for n, why in res_30_004["hits"])
+    assert hit_30_004 is True
+    assert res_30_004["concentration"]["exceeds_30pct"] is True
+    assert res_30_004["concentration"]["top_weight"] == 0.30004
+
+    # 3. 30.01% clearly above boundary must also flag consistently
+    w_30_01 = dict(zip(tickers, [30.01, 24.0, 23.0, 22.99]))
+    res_30_01 = api_module.compute_risk(api_module.PortfolioRequest(weights=w_30_01))
+    hit_30_01 = any(n == 20 and why.startswith("Largest holding") for n, why in res_30_01["hits"])
+    assert hit_30_01 is True
+    assert res_30_01["concentration"]["exceeds_30pct"] is True
+    assert res_30_01["concentration"]["top_weight"] == 0.3001
+

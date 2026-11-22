@@ -44,7 +44,7 @@ export function PortfolioTab({ analysis, portfolioSize }: Props) {
             {concentration.top_asset} · {(concentration.top_weight * 100).toFixed(1)}%
           </div>
           <div className="text-[11px] text-zinc-400 mt-1">
-            {concentration.top_weight > 0.3 ? (
+            {(concentration.exceeds_30pct ?? concentration.top_weight > 0.3) ? (
               <span className="text-rose-400 font-medium">Exceeds 30% concentration rule</span>
             ) : (
               <span className="text-emerald-400 font-medium">Within standard threshold (&lt;30%)</span>

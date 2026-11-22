@@ -6,6 +6,7 @@ export interface ConcentrationMetrics {
   top3_weight: number;
   hhi: number;
   effective_assets: number;
+  exceeds_30pct?: boolean;
 }
 
 export interface CorrelationMatrix {
