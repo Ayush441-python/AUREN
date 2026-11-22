@@ -107,3 +107,27 @@ def test_wallet_endpoint_shape(monkeypatch):
     assert data["portfolio"] == {"NVDA": 1.0}
     assert data["holdings"][0]["ticker"] == "NVDA"
     assert data["total_value"] == 200.0
+
+def test_risk_series_align_with_dates():
+    """Regression for #175: portfolio/drawdown points must match price dates."""
+    from unittest.mock import patch
+    import pandas as pd
+    import api
+
+    dates = pd.bdate_range("2026-10-05", periods=26)
+    prices = pd.DataFrame({
+        "NVDA": [100, 110, 88] + [88] * 23,
+        "MSFT": [100] * 3 + [100 + day / 10 for day in range(1, 24)],
+    }, index=dates)
+    with patch.object(api, "load_prices", return_value=prices):
+        r = client.post("/risk", json={"weights": {"NVDA": 50, "MSFT": 50}}).json()
+
+    n = len(r["dates"])
+    assert len(r["price_series"]["Portfolio"]) == n
+    assert len(r["drawdown_series"]) == n
+    # First date anchors the portfolio index at 100 with zero drawdown.
+    assert r["price_series"]["Portfolio"][0] == 100.0
+    assert r["drawdown_series"][0] == 0.0
+    # Spot-check alignment on the third date: NVDA -20%, MSFT flat -> -10%.
+    assert r["price_series"]["Portfolio"][2] == 94.5
+    assert abs(r["drawdown_series"][2] - (-0.10)) < 1e-4
