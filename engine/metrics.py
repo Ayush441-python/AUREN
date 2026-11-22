@@ -24,6 +24,15 @@ def portfolio_returns(prices: pd.DataFrame, w: pd.Series) -> pd.Series:
     return r @ w  # assumes weights held constant each day
 
 
+def weight_squared_terms(w: pd.Series) -> str:
+    """Format ``w_i^2`` terms for the HHI derivation display.
+
+    Weights print at 4 decimals so the displayed terms reproduce the
+    displayed HHI (0.125 -> "0.1250" instead of the lossy "0.12").
+    """
+    return " + ".join(f"{x:.4f}²" for x in w.sort_values(ascending=False))
+
+
 def volatility(pr: pd.Series) -> float:
     return float(pr.std() * np.sqrt(252))  # annualised
 
