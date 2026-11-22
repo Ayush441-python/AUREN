@@ -21,7 +21,15 @@ NUM = re.compile(r"\d+(?:,\d{3})*(?:\.\d+)?")
 
 def clean_output(text: str) -> str:
     """Remove <think>...</think> blocks that some open models add."""
-    return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
+    if "</think>" in text:
+        # R1-style templates put the opening tag in the prompt, so the
+        # content starts mid-reasoning and only has the closing tag.
+        text = text.rsplit("</think>", 1)[1]
+    if "<think>" in text:
+        # Unclosed tag: generation stopped inside the reasoning block.
+        text = text.split("<think>", 1)[0]
+    return text.strip()
 
 
 def ai_report(metrics: dict, base_url: str, api_key: str, model: str,
@@ -56,7 +64,13 @@ def ai_report(metrics: dict, base_url: str, api_key: str, model: str,
     if not r.ok:
         detail = r.text.strip()[:400]
         raise RuntimeError(f"LLM HTTP {r.status_code}: {detail or r.reason}")
-    msg = r.json()["choices"][0]["message"]
+    choice = r.json()["choices"][0]
+    if choice.get("finish_reason") == "length":
+        raise RuntimeError(
+            "The model hit the token limit before finishing the report. "
+            "Try again or raise the limit."
+        )
+    msg = choice["message"]
     text = clean_output(msg.get("content") or "")
     if not text:
         raise RuntimeError("The model returned an empty answer")
