@@ -274,8 +274,9 @@ def compute_risk(payload: PortfolioRequest):
     vol = _finite(volatility(pr))
     mdd = _finite(max_drawdown(pr))
 
-    corr = correlation(prices, w.index).fillna(0.0)
-    pairs = high_pairs(corr)
+    rets = prices[list(w.index)].dropna().pct_change().dropna()
+    corr = rets.corr().fillna(0.0)
+    pairs = high_pairs(corr, returns=rets)
     exposure = sector_exposure(w)
 
     max_sec_exp = float(exposure.max()) if not exposure.empty else 0.0

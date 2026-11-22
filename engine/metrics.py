@@ -37,8 +37,45 @@ def correlation(prices: pd.DataFrame, tickers) -> pd.DataFrame:
     return prices[list(tickers)].dropna().pct_change().dropna().corr()
 
 
-def high_pairs(corr: pd.DataFrame, threshold: float = 0.7) -> list[tuple]:
+def _corr_exceeds_exact(x: pd.Series, y: pd.Series, threshold: float) -> bool:
+    """Order-independent Pearson ``> threshold`` decision.
+
+    pandas' float covariance can land a mathematically exact tie (e.g. 7/10)
+    a few ULPs above or below the cutoff depending on column order. For
+    coefficients within float noise of the threshold, recompute the decision
+    with exact rational arithmetic on the float inputs — Fraction sums are
+    exact, so the result cannot depend on summation order.
+    """
+    from fractions import Fraction
+
+    xs = [Fraction(v) for v in x]
+    ys = [Fraction(v) for v in y]
+    n = len(xs)
+    if n < 2:
+        return False
+    mx = sum(xs) / n
+    my = sum(ys) / n
+    sxy = sum((a - mx) * (b - my) for a, b in zip(xs, ys))
+    if sxy <= 0:
+        return False
+    sxx = sum((a - mx) ** 2 for a in xs)
+    syy = sum((b - my) ** 2 for b in ys)
+    t = Fraction(str(threshold))
+    return sxy * sxy > t * t * sxx * syy
+
+
+def high_pairs(corr: pd.DataFrame, threshold: float = 0.7,
+               returns: pd.DataFrame | None = None) -> list[tuple]:
     cols = list(corr.columns)
-    return [(a, b, round(float(corr.loc[a, b]), 2))
-            for i, a in enumerate(cols) for b in cols[i + 1:]
-            if corr.loc[a, b] > threshold]
+    pairs = []
+    for i, a in enumerate(cols):
+        for b in cols[i + 1:]:
+            r = float(corr.loc[a, b])
+            if abs(r - threshold) <= 1e-9 and returns is not None \
+                    and a in returns.columns and b in returns.columns:
+                hit = _corr_exceeds_exact(returns[a], returns[b], threshold)
+            else:
+                hit = r > threshold
+            if hit:
+                pairs.append((a, b, round(r, 2)))
+    return pairs
