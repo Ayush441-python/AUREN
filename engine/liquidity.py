@@ -19,5 +19,7 @@ def avg_daily_value(prices: pd.DataFrame, volumes: pd.DataFrame,
 def days_to_exit(position_values: pd.Series, adv: pd.Series,
                  participation: float = 0.10) -> pd.Series:
     """Days needed to sell each position at `participation` of average daily volume."""
-    adv = adv.reindex(position_values.index).replace(0, float("nan"))
-    return position_values / (participation * adv)
+    adv = adv.reindex(position_values.index)
+    capacity = participation * adv.where(adv >= 0)
+    # A positive holding divided by zero capacity has no finite exit.
+    return position_values.div(capacity).mask(position_values == 0, 0.0)
