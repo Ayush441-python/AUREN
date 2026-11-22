@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import math
 import os
+import re
 from typing import Any, Dict, Optional
 
 import pandas as pd
@@ -27,7 +28,7 @@ from engine.metrics import (
 from engine.report import ai_report, unverified_numbers
 from engine.score import RULE_TABLE, risk_score
 from engine.stress import SCENARIOS, stress, worst_periods
-from engine.universe import GROUPS, SECTORS
+from engine.universe import GROUPS, SECTORS, classify_and_register_ticker
 from engine.wallet import (
     BASE_RPC,
     holdings_to_portfolio,
@@ -173,11 +174,13 @@ def _normalize_and_validate_weights(weights: Dict[str, float]) -> pd.Series:
             detail="Portfolio weights cannot be empty",
         )
 
-    # Normalize ticker symbols to uppercase, rejecting canonical collisions
-    # (e.g. "AAPL" and "aapl" would otherwise silently overwrite each other)
-    clean_weights = {}
+    # Normalize ticker symbols to uppercase, alias common crypto/currency
+    # tickers, and reject canonical collisions before validation.
+    clean_weights: Dict[str, float] = {}
     for raw_ticker, value in weights.items():
         ticker = raw_ticker.strip().upper()
+        if ticker in {"ETH", "BTC", "SOL", "DOGE", "AVAX", "LINK", "SUI"}:
+            ticker = f"{ticker}-USD"
         if ticker in clean_weights:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -185,11 +188,22 @@ def _normalize_and_validate_weights(weights: Dict[str, float]) -> pd.Series:
             )
         clean_weights[ticker] = value
 
-    unknown = [t for t in clean_weights if t not in SECTORS]
+    # Dynamically register any recognizable market ticker not yet in SECTORS
+    unknown = []
+    for t in clean_weights:
+        if t not in SECTORS:
+            if re.match(r"^[A-Z0-9\.\-]{1,10}$", t) and not t.startswith("INVALID"):
+                try:
+                    classify_and_register_ticker(t)
+                except Exception:
+                    unknown.append(t)
+            else:
+                unknown.append(t)
+
     if unknown:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported tickers: {unknown}. Supported tickers: {list(SECTORS.keys())}",
+            detail=f"Unsupported tickers: {unknown}. Supported tickers: {sorted(list(SECTORS.keys()))}",
         )
 
     w = pd.Series(clean_weights, dtype=float)
@@ -203,13 +217,17 @@ def _normalize_and_validate_weights(weights: Dict[str, float]) -> pd.Series:
 
 
 def _load_aligned_prices(tickers: list[str], period: str) -> pd.DataFrame:
-    """Prices for exactly `tickers`, restricted to days where every ticker traded.
+    """Prices for exactly `tickers`, reconciled across stock & crypto trading schedules.
 
-    Stocks skip weekends but crypto does not, so the raw frame has NaN rows.
-    The Streamlit app dropna()s for the same reason; the API must too, otherwise
-    NaN leaks into the JSON and the response fails.
+    Stocks skip weekends but crypto does not. We forward-fill up to 3 days
+    (covering weekends and single market holidays) so multi-asset portfolios
+    stay aligned without dropping 90+ days of crypto returns.
     """
     prices = load_prices(tickers, period=period)
+    if prices.empty and period != "1y":
+        # Adaptive lookback retry
+        prices = load_prices(tickers, period="1y")
+
     if prices.empty:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
@@ -221,13 +239,20 @@ def _load_aligned_prices(tickers: list[str], period: str) -> pd.DataFrame:
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"No price data available for: {missing}. Try again shortly or remove them.",
         )
-    prices = prices[tickers].dropna()
-    if len(prices) < 30:
+
+    # Reconcile crypto and stock trading calendars with 3-day forward fill
+    aligned = prices[tickers].ffill(limit=3).dropna()
+    if len(aligned) < 30:
+        aligned = prices[tickers].dropna()
+
+    if len(aligned) < 30:
+        short_tickers = [t for t in tickers if len(prices[t].dropna()) < 30]
+        culprit = f" Short history: {short_tickers}." if short_tickers else ""
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Not enough overlapping price history for these tickers (need at least 30 trading days).",
+            detail=f"Not enough overlapping price history for these tickers (need at least 30 trading days).{culprit}",
         )
-    return prices
+    return aligned
 
 
 # Serve the web frontend from the API itself (http://127.0.0.1:8000/app/)
@@ -407,6 +432,7 @@ def inspect_wallet(payload: WalletRequest):
     df, total, skipped = holdings_to_portfolio(rows)
     # {ticker: weight as a fraction of 1}, which is what the frontend expects
     portfolio = {str(r["ticker"]): round(float(r["weight"]) / 100, 6) for _, r in df.iterrows()}
+    has_holdings = len(portfolio) > 0 and total > 0
 
     return _json_safe({
         "address": payload.address,
@@ -416,6 +442,12 @@ def inspect_wallet(payload: WalletRequest):
         "portfolio": portfolio,
         "total_value": round(float(total), 2),
         "skipped_count": len(skipped),
+        "has_holdings": has_holdings,
+        "message": (
+            f"Successfully loaded {len(portfolio)} portfolio asset{'s' if len(portfolio) > 1 else ''}."
+            if has_holdings
+            else "No supported tokenized stocks or crypto found in this wallet. You can enter holdings manually or choose a preset."
+        ),
     })
 
 
