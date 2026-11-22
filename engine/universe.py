@@ -169,6 +169,13 @@ _GROUP_MEMBERS: Dict[str, List[str]] = {
 
 GROUPS: Dict[str, str] = {t: g for g, members in _GROUP_MEMBERS.items() for t in members}
 
+# Share classes / ticker aliases that are the same economic issuer. Weights for
+# an alias are merged into the canonical ticker so one company cannot be split
+# across rows to dodge concentration rules.
+TICKER_ALIASES = {
+    "GOOG": "GOOGL",  # Alphabet Inc. Class C -> Class A
+}
+
 # Ensure static synchronization
 _mismatch = set(SECTORS) ^ set(GROUPS)
 if _mismatch:

@@ -28,7 +28,7 @@ from engine.metrics import (
 from engine.report import ai_report, unverified_numbers
 from engine.score import RULE_TABLE, risk_score
 from engine.stress import SCENARIOS, stress, worst_periods
-from engine.universe import GROUPS, SECTORS, classify_and_register_ticker
+from engine.universe import GROUPS, SECTORS, TICKER_ALIASES, classify_and_register_ticker
 from engine.wallet import (
     BASE_RPC,
     holdings_to_portfolio,
@@ -174,13 +174,16 @@ def _normalize_and_validate_weights(weights: Dict[str, float]) -> pd.Series:
             detail="Portfolio weights cannot be empty",
         )
 
-    # Normalize ticker symbols to uppercase and alias common crypto/currency tickers
+    # Normalize ticker symbols to uppercase, alias common crypto/currency
+    # tickers, and merge share-class aliases (e.g. GOOG into GOOGL) so one
+    # issuer cannot be split across rows.
     clean_weights: Dict[str, float] = {}
-    for k, v in weights.items():
-        key = k.strip().upper()
-        if key in {"ETH", "BTC", "SOL", "DOGE", "AVAX", "LINK", "SUI"}:
-            key = f"{key}-USD"
-        clean_weights[key] = clean_weights.get(key, 0.0) + v
+    for raw_ticker, value in weights.items():
+        ticker = raw_ticker.strip().upper()
+        if ticker in {"ETH", "BTC", "SOL", "DOGE", "AVAX", "LINK", "SUI"}:
+            ticker = f"{ticker}-USD"
+        canonical = TICKER_ALIASES.get(ticker, ticker)
+        clean_weights[canonical] = clean_weights.get(canonical, 0.0) + value
 
     # Dynamically register any recognizable market ticker not yet in SECTORS
     unknown = []
