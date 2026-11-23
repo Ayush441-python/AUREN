@@ -260,19 +260,21 @@
           <div class="total-row"><span id="wf-chip" class="chip ok">Total 100.0%</span>
             <span class="row-gap"><button id="wf-norm" class="btn btn-ghost btn-sm" type="button" hidden>Scale to 100%</button><button id="wf-run" class="btn btn-primary btn-sm" type="button">Compare</button></span></div>
         </div>
-        <div class="grid g3 gap-top">
-          <div class="kpi"><span class="kpi-label">Current score</span><span id="wf-cur" class="kpi-val">–</span><span id="wf-cur-tier" class="kpi-sub">–</span></div>
-          <div class="kpi"><span class="kpi-label">What-if score</span><span id="wf-alt" class="kpi-val gold">–</span><span id="wf-alt-tier" class="kpi-sub">–</span></div>
-          <div class="kpi"><span class="kpi-label">Change</span><span id="wf-delta" class="kpi-val">–</span><span id="wf-note" class="kpi-sub">–</span></div>
+        <div id="wf-results" hidden>
+          <div class="grid g3 gap-top">
+            <div class="kpi"><span class="kpi-label">Current score</span><span id="wf-cur" class="kpi-val">–</span><span id="wf-cur-tier" class="kpi-sub">–</span></div>
+            <div class="kpi"><span class="kpi-label">What-if score</span><span id="wf-alt" class="kpi-val gold">–</span><span id="wf-alt-tier" class="kpi-sub">–</span></div>
+            <div class="kpi"><span class="kpi-label">Change</span><span id="wf-delta" class="kpi-val">–</span><span id="wf-note" class="kpi-sub">–</span></div>
+          </div>
+          <div class="box gap-top"><h2>Side-by-side metrics</h2>
+            <div class="scroll"><table class="table"><thead><tr><th>Metric</th><th>Current</th><th>What-if</th></tr></thead><tbody id="wf-body"></tbody></table></div></div>
+          <div class="grid g2 gap-top">
+            <div class="box"><h2>Current: rules triggered</h2><div id="wf-cur-rules"></div></div>
+            <div class="box"><h2>What-if: rules triggered</h2><div id="wf-alt-rules"></div></div>
+          </div>
+          <div class="box gap-top"><h2>Drawdown comparison</h2><p class="sub">Both portfolios over the same period.</p>
+            <div class="chart chart-md"><canvas id="wfChart" role="img" aria-label="Drawdown comparison"></canvas></div></div>
         </div>
-        <div class="box gap-top"><h2>Side-by-side metrics</h2>
-          <div class="scroll"><table class="table"><thead><tr><th>Metric</th><th>Current</th><th>What-if</th></tr></thead><tbody id="wf-body"></tbody></table></div></div>
-        <div class="grid g2 gap-top">
-          <div class="box"><h2>Current: rules triggered</h2><div id="wf-cur-rules"></div></div>
-          <div class="box"><h2>What-if: rules triggered</h2><div id="wf-alt-rules"></div></div>
-        </div>
-        <div class="box gap-top"><h2>Drawdown comparison</h2><p class="sub">Both portfolios over the same period.</p>
-          <div class="chart chart-md"><canvas id="wfChart" role="img" aria-label="Drawdown comparison"></canvas></div></div>
       </section>
 
       <!-- AI report -->

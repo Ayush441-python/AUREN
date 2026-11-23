@@ -563,14 +563,22 @@ function cloneToWhatIf() {
 }
 
 async function runWhatIf() {
+  const results = $("wf-results");
+  results.hidden = true;
   if (!analysis) return showAlert("Run the analysis on your current portfolio first.");
   const weights = readWeights("wf-inputs"), total = sum(weights);
   if (!Object.keys(weights).length) return showAlert("Add at least one what-if holding.");
   if (Math.abs(total - 100) > 0.1) return showAlert(`What-if weights add up to ${total.toFixed(1)}%. They need to total 100%.`);
   showAlert(null);
   const btn = $("wf-run"); btn.disabled = true; btn.textContent = "Comparing…";
-  try { whatIf = await api("/risk", { method: "POST", body: { weights, period: "2y" } }); renderWhatIf(analysis, whatIf); }
-  catch (e) { showAlert(`What-if failed: ${e.message}`); }
+  try {
+    whatIf = await api("/risk", { method: "POST", body: { weights, period: "2y" } });
+    results.hidden = false;
+    renderWhatIf(analysis, whatIf);
+  } catch (e) {
+    results.hidden = true;
+    showAlert(`What-if failed: ${e.message}`);
+  }
   finally { btn.disabled = false; btn.textContent = "Compare"; }
 }
 
