@@ -19,7 +19,7 @@ export function LiquidityTab({ liquidity, isLoading }: Props) {
     );
   }
 
-  if (!liquidity || !liquidity.assets) {
+  if (!liquidity || !liquidity.assets || liquidity.assets.length === 0) {
     return (
       <div className="p-8 text-center rounded-xl border border-[#1f232c] bg-[#111318]">
         <p className="text-xs text-zinc-400">Liquidity data is currently unavailable.</p>
@@ -28,11 +28,15 @@ export function LiquidityTab({ liquidity, isLoading }: Props) {
   }
 
   const { max_days_to_exit, assets, adv_participation } = liquidity;
-  const isHealthy = max_days_to_exit < 1.0;
-  const slowestAsset = assets.reduce(
-    (max, a) => ((a.days_to_exit ?? 0) > (max.days_to_exit ?? 0) ? a : max),
-    assets[0]
-  );
+  const validAssets = assets.filter((a) => a.days_to_exit != null);
+  const hasVolume = validAssets.length > 0;
+  const isHealthy = hasVolume && max_days_to_exit < 1.0;
+  const slowestAsset = hasVolume
+    ? validAssets.reduce(
+        (max, a) => ((a.days_to_exit ?? 0) > (max.days_to_exit ?? 0) ? a : max),
+        validAssets[0]
+      )
+    : null;
 
   return (
     <div className="space-y-6">
@@ -46,7 +50,7 @@ export function LiquidityTab({ liquidity, isLoading }: Props) {
             <Clock className="w-3.5 h-3.5 text-[#d8af3f]" />
           </div>
           <div className="text-2xl font-bold font-mono text-zinc-100">
-            {max_days_to_exit.toFixed(2)} days
+            {hasVolume ? `${max_days_to_exit.toFixed(2)} days` : "–"}
           </div>
           <div className="text-[11px] text-zinc-400 mt-1">
             {slowestAsset ? `${slowestAsset.ticker} liquidation pace` : "–"}
@@ -73,7 +77,9 @@ export function LiquidityTab({ liquidity, isLoading }: Props) {
             <span className="text-[11px] font-semibold uppercase tracking-wider">
               Liquidity Health Status
             </span>
-            {isHealthy ? (
+            {!hasVolume ? (
+              <AlertCircle className="w-3.5 h-3.5 text-zinc-400" />
+            ) : isHealthy ? (
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
             ) : (
               <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
@@ -81,13 +87,25 @@ export function LiquidityTab({ liquidity, isLoading }: Props) {
           </div>
           <div
             className={`text-2xl font-bold font-mono ${
-              isHealthy ? "text-emerald-400" : "text-amber-400"
+              !hasVolume
+                ? "text-zinc-400"
+                : isHealthy
+                ? "text-emerald-400"
+                : "text-amber-400"
             }`}
           >
-            {isHealthy ? "Highly Liquid" : "Constrained"}
+            {!hasVolume
+              ? "Unavailable"
+              : isHealthy
+              ? "Highly Liquid"
+              : "Constrained"}
           </div>
           <div className="text-[11px] text-zinc-400 mt-1">
-            {isHealthy ? "All exits complete in < 1 day" : "Bottleneck holdings present"}
+            {!hasVolume
+              ? "No market volume data available"
+              : isHealthy
+              ? "All exits complete in < 1 day"
+              : "Bottleneck holdings present"}
           </div>
         </div>
       </div>
@@ -111,9 +129,10 @@ export function LiquidityTab({ liquidity, isLoading }: Props) {
             </thead>
             <tbody className="divide-y divide-[#1f232c]/50">
               {assets.map((asset) => {
+                const hasDays = asset.days_to_exit != null;
                 const days = asset.days_to_exit ?? 0;
-                const isSlow = days >= 1.0;
-                const isInstant = days < 0.1;
+                const isSlow = hasDays && days >= 1.0;
+                const isInstant = hasDays && days < 0.1;
 
                 return (
                   <tr key={asset.ticker} className="hover:bg-[#161920] transition-colors">
@@ -130,19 +149,27 @@ export function LiquidityTab({ liquidity, isLoading }: Props) {
                       {asset.adv ? `$${Math.round(asset.adv * 0.1).toLocaleString()}` : "–"}
                     </td>
                     <td className="py-3 text-right font-mono font-bold text-zinc-100">
-                      {days > 0 ? days.toFixed(3) : "Instant"}
+                      {!hasDays ? "–" : days > 0 ? days.toFixed(3) : "Instant"}
                     </td>
                     <td className="py-3 text-right">
                       <span
                         className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold border ${
-                          isSlow
+                          !hasDays
+                            ? "bg-zinc-500/10 border-zinc-500/20 text-zinc-400"
+                            : isSlow
                             ? "bg-rose-500/10 border-rose-500/20 text-rose-400"
                             : isInstant
                             ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
                             : "bg-amber-500/10 border-amber-500/20 text-amber-400"
                         }`}
                       >
-                        {isSlow ? "Slow (1+ d)" : isInstant ? "Instant (<0.1 d)" : "Liquid (<1 d)"}
+                        {!hasDays
+                          ? "No volume data"
+                          : isSlow
+                          ? "Slow (1+ d)"
+                          : isInstant
+                          ? "Instant (<0.1 d)"
+                          : "Liquid (<1 d)"}
                       </span>
                     </td>
                   </tr>
