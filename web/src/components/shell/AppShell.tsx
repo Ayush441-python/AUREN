@@ -13,6 +13,7 @@ interface AppShellProps {
   onNewPortfolio?: () => void;
   onOpenWalletModal?: () => void;
   walletAddress?: string | null;
+  onSelectPreset?: (weights: Record<string, number>, name: string) => void;
 }
 
 export function AppShell({
@@ -23,6 +24,7 @@ export function AppShell({
   onNewPortfolio,
   onOpenWalletModal,
   walletAddress,
+  onSelectPreset,
 }: AppShellProps) {
   const [internalTab, setInternalTab] = useState<NavTab>(activeTab);
   const currentTab = onSelectTab ? activeTab : internalTab;
@@ -42,6 +44,7 @@ export function AppShell({
           onOpenWalletModal={onOpenWalletModal}
           walletAddress={walletAddress}
           activeTab={currentTab}
+          onSelectPreset={onSelectPreset}
         />
 
         {/* Scrollable Workstation Canvas */}

@@ -94,6 +94,7 @@ export default function WorkstationPage() {
       walletAddress={connectedAddress}
       onNewPortfolio={() => setBuilderModalOpen(true)}
       onOpenWalletModal={() => setWalletModalOpen(true)}
+      onSelectPreset={handleApplyPortfolio}
     >
       {/* Dynamic Tab Views */}
       {activeTab === "overview" && (

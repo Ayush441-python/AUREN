@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { RiskAnalysis } from "@/lib/types";
 import { formatPercent } from "@/lib/format";
 import { Activity, Sliders, RotateCcw, AlertTriangle, ShieldCheck } from "lucide-react";
@@ -14,13 +14,17 @@ export function StressView({ data, onSimulate }: StressViewProps) {
   const initialWeights = { ...data.normalized_weights };
   const [weights, setWeights] = useState<Record<string, number>>(initialWeights);
 
+  useEffect(() => {
+    setWeights({ ...data.normalized_weights });
+  }, [data.normalized_weights]);
+
   const handleWeightChange = (ticker: string, newPct: number) => {
     const updated = { ...weights, [ticker]: newPct / 100 };
     setWeights(updated);
   };
 
   const handleReset = () => {
-    setWeights(initialWeights);
+    setWeights({ ...data.normalized_weights });
   };
 
   // Compute total weight to display normalization feedback
@@ -127,7 +131,12 @@ export function StressView({ data, onSimulate }: StressViewProps) {
         {onSimulate && (
           <div className="mt-6 flex justify-end">
             <button
-              onClick={() => onSimulate(weights)}
+              onClick={() => {
+                const active = Object.fromEntries(
+                  Object.entries(weights).filter(([, v]) => v > 0)
+                );
+                onSimulate(Object.keys(active).length > 0 ? active : weights);
+              }}
               className="rounded-md bg-[#E3B341] px-4 py-2 text-xs font-semibold text-[#0E0E10] transition hover:bg-[#f0c254]"
             >
               Recalculate Stress Matrix with New Weights

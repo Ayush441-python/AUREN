@@ -200,13 +200,22 @@ def _normalize_and_validate_weights(weights: Dict[str, float]) -> pd.Series:
             detail=f"Unsupported tickers: {unknown}. Supported tickers: {sorted(list(SECTORS.keys()))}",
         )
 
-    w = pd.Series(clean_weights, dtype=float)
-    if (w <= 0).any() or w.sum() <= 0:
+    # Reject negative weights
+    if any(float(v) < 0 for v in clean_weights.values()):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Weights must be non-negative numbers summing to > 0",
+        )
+
+    # Filter out 0-weight positions (e.g. 0% sliders or closed positions)
+    active_weights = {t: float(v) for t, v in clean_weights.items() if float(v) > 0}
+    if not active_weights or sum(active_weights.values()) <= 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Weights must be positive numbers summing to > 0",
         )
 
+    w = pd.Series(active_weights, dtype=float)
     return w / w.sum()
 
 
