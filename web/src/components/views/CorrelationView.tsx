@@ -182,7 +182,7 @@ export function CorrelationView({ data }: CorrelationViewProps) {
             ) : (
               <div className="rounded-lg border border-[#26262C] bg-[#1C1C21] p-4 text-xs text-[#7FB3A6] flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 shrink-0" />
-                <span>No pairs exceed the 0.60 high correlation threshold. Portfolio exhibits strong asset independence.</span>
+                <span>No asset pairs met the risk model’s high-correlation rule in this analysis.</span>
               </div>
             )}
           </div>
