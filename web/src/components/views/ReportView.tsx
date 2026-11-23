@@ -19,6 +19,8 @@ interface ReportViewProps {
 
 export function ReportView({ data }: ReportViewProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const topSector = Object.entries(data.sector_exposure || {}).sort(([, a], [, b]) => b - a)[0]?.[0] || "primary sectors";
+  const topCorrelated = data.correlated_pairs && data.correlated_pairs.length > 0 ? data.correlated_pairs[0] : null;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
@@ -72,7 +74,7 @@ export function ReportView({ data }: ReportViewProps) {
               <span className="font-mono font-medium text-[#7FB3A6] bg-[#7FB3A6]/10 px-1.5 py-0.5 rounded">
                 {formatPercent(data.concentration.top_weight)}
               </span>{" "}
-              of total capital, coupled with high sector exposure in Technology.
+              of total capital, coupled with high sector exposure in {topSector}.
             </p>
           </div>
 
@@ -90,7 +92,7 @@ export function ReportView({ data }: ReportViewProps) {
               <span className="font-mono text-[#F5F6F7] bg-[#1C1C21] px-1.5 py-0.5 rounded border border-[#26262C]">
                 {formatNumber(data.concentration.hhi, 3)}
               </span>
-              . While multi-asset holdings span both equities and digital assets, high pairwise correlation among crypto components (+0.84 between ETH-USD and BTC-USD) limits downside dampening during systemic liquidity contractions.
+              . While multi-asset holdings span diverse asset classes, {topCorrelated ? `high pairwise correlation (+${topCorrelated[2].toFixed(2)} between ${topCorrelated[0]} and ${topCorrelated[1]}) limits downside dampening during systemic liquidity contractions.` : `low pairwise correlation across components supports downside dampening during systemic liquidity contractions.`}
             </p>
           </div>
 

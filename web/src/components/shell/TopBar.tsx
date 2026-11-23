@@ -9,13 +9,36 @@ interface TopBarProps {
   onOpenWalletModal?: () => void;
   walletAddress?: string | null;
   activeTab?: string;
+  onSelectPreset?: (weights: Record<string, number>, name: string) => void;
 }
+
+const PRESET_WORKSPACES: { name: string; label: string; count: string; weights: Record<string, number> }[] = [
+  {
+    name: "Balanced Multi-Asset",
+    label: "Balanced Multi-Asset",
+    count: "5 assets",
+    weights: { AAPL: 0.35, NVDA: 0.25, "ETH-USD": 0.20, "BTC-USD": 0.15, USDC: 0.05 },
+  },
+  {
+    name: "Mega-Cap Tech Focus",
+    label: "Mega-Cap Tech Focus",
+    count: "4 assets",
+    weights: { NVDA: 0.35, MSFT: 0.30, AAPL: 0.20, GOOGL: 0.15 },
+  },
+  {
+    name: "Digital Asset Core",
+    label: "Digital Asset Core",
+    count: "Crypto L1s",
+    weights: { "BTC-USD": 0.50, "ETH-USD": 0.35, USDC: 0.15 },
+  },
+];
 
 export function TopBar({
   portfolioName = "Sample: Balanced Multi-Asset",
   onNewPortfolio,
   onOpenWalletModal,
   walletAddress,
+  onSelectPreset,
 }: TopBarProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
@@ -41,27 +64,21 @@ export function TopBar({
               <div className="px-2.5 py-1 text-[11px] font-medium uppercase tracking-wider text-[#6B6E76]">
                 Institutional Workspaces
               </div>
-              <button
-                onClick={() => setDropdownOpen(false)}
-                className="flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-xs text-[#F5F6F7] hover:bg-[#26262C]"
-              >
-                <span>Balanced Multi-Asset</span>
-                <span className="font-mono text-[11px] text-[#A1A4AB]">5 assets</span>
-              </button>
-              <button
-                onClick={() => setDropdownOpen(false)}
-                className="flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-xs text-[#A1A4AB] hover:bg-[#26262C] hover:text-[#F5F6F7]"
-              >
-                <span>Mega-Cap Tech Focus</span>
-                <span className="font-mono text-[11px] text-[#6B6E76]">4 assets</span>
-              </button>
-              <button
-                onClick={() => setDropdownOpen(false)}
-                className="flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-xs text-[#A1A4AB] hover:bg-[#26262C] hover:text-[#F5F6F7]"
-              >
-                <span>Digital Asset Core</span>
-                <span className="font-mono text-[11px] text-[#6B6E76]">Crypto L1s</span>
-              </button>
+              {PRESET_WORKSPACES.map((preset) => (
+                <button
+                  key={preset.name}
+                  onClick={() => {
+                    setDropdownOpen(false);
+                    if (onSelectPreset) {
+                      onSelectPreset(preset.weights, preset.name);
+                    }
+                  }}
+                  className="flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-xs text-[#F5F6F7] hover:bg-[#26262C] transition-colors"
+                >
+                  <span>{preset.label}</span>
+                  <span className="font-mono text-[11px] text-[#A1A4AB]">{preset.count}</span>
+                </button>
+              ))}
 
               <div className="my-1 border-t border-[#26262C]" />
 
