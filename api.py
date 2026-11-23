@@ -306,6 +306,9 @@ def compute_risk(payload: PortfolioRequest):
     max_sec_exp = float(exposure.max()) if not exposure.empty else 0.0
     score, level, hits = risk_score(conc, vol, mdd, pairs, max_sec_exp)
 
+    # Stable sort hits descending by score impact (points), preserving rule declaration order for ties
+    sorted_hits = sorted(hits, key=lambda h: h[0], reverse=True)
+
     # Worst historical drawdown periods
     historical_worst = worst_periods(pr)
 
@@ -334,8 +337,8 @@ def compute_risk(payload: PortfolioRequest):
         "score": score,
         "level": level,
         "normalized_weights": {k: round(v, 4) for k, v in w.to_dict().items()},
-        "reasons": [why for _, why in hits],
-        "hits": hits,
+        "reasons": [why for _, why in sorted_hits],
+        "hits": sorted_hits,
         "dates": dates,
         "price_series": price_series,
         "drawdown_series": dd_series.round(4).tolist(),
