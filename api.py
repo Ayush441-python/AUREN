@@ -330,11 +330,14 @@ def compute_risk(payload: PortfolioRequest):
         "data": [[round(float(v), 2) for v in row] for row in corr.values],
     }
 
+    # Primary risk drivers ordered by score impact descending, preserving rule declaration order for ties
+    sorted_hits = sorted(hits, key=lambda x: x[0], reverse=True)
+
     result = {
         "score": score,
         "level": level,
         "normalized_weights": {k: round(v, 4) for k, v in w.to_dict().items()},
-        "reasons": [why for _, why in hits],
+        "reasons": [why for _, why in sorted_hits],
         "hits": hits,
         "dates": dates,
         "price_series": price_series,
