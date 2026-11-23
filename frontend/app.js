@@ -508,14 +508,27 @@ function applyCustomShock() {
 // ------------------------------------------------------------------ Liquidity tab
 function renderLiquidity(liq) {
   const body = $("liq-body"), note = $("liq-note");
-  if (!liq || !liq.assets) {
+  if (!liq || !liq.assets || liq.assets.length === 0) {
     body.innerHTML = ""; $("l-max").textContent = "–"; $("l-ticker").textContent = "–";
     note.className = "callout muted"; note.textContent = "Liquidity data isn't available right now. Run the analysis again to retry.";
     return;
   }
-  const worst = liq.assets.reduce((m, a) => ((a.days_to_exit ?? -1) > (m.days_to_exit ?? -1) ? a : m), liq.assets[0]);
-  $("l-max").textContent = `${(liq.max_days_to_exit ?? 0).toFixed(2)} days`;
-  $("l-ticker").textContent = `Slowest to sell: ${worst.ticker}`;
+  const valid = liq.assets.filter((a) => a.days_to_exit != null);
+  if (!valid.length) {
+    $("l-max").textContent = "–";
+    $("l-ticker").textContent = "–";
+    note.className = "callout warn";
+    note.textContent = "Market volume data is currently unavailable for these holdings.";
+  } else {
+    const worst = valid.reduce((m, a) => (a.days_to_exit > m.days_to_exit ? a : m), valid[0]);
+    $("l-max").textContent = `${(liq.max_days_to_exit ?? 0).toFixed(2)} days`;
+    $("l-ticker").textContent = `Slowest to sell: ${worst.ticker}`;
+    const slow = (liq.max_days_to_exit ?? 0) >= 1;
+    note.className = `callout ${slow ? "danger" : "good"}`;
+    note.innerHTML = slow
+      ? `Selling <strong>${esc(worst.ticker)}</strong> would take ${(liq.max_days_to_exit ?? 0).toFixed(2)} trading days at 10% of daily volume.`
+      : "Every position can be sold within one trading day at 10% of daily volume.";
+  }
   body.innerHTML = liq.assets.map((a) => {
     if (a.days_to_exit == null) {
       return `<tr><td><strong>${esc(a.ticker)}</strong></td><td class="num">${usd(a.holding_value)}</td><td class="num">–</td>
@@ -525,11 +538,6 @@ function renderLiquidity(liq) {
     return `<tr><td><strong>${esc(a.ticker)}</strong></td><td class="num">${usd(a.holding_value)}</td><td class="num">${usd(a.adv)}</td>
       <td class="num">${usd(a.adv * 0.1)}</td><td class="num"><strong>${d.toFixed(3)}</strong></td><td><span class="chip ${cls}">${status}</span></td></tr>`;
   }).join("");
-  const slow = liq.max_days_to_exit > 1;
-  note.className = `callout ${slow ? "danger" : "good"}`;
-  note.innerHTML = slow
-    ? `Selling <strong>${esc(worst.ticker)}</strong> would take ${liq.max_days_to_exit.toFixed(2)} trading days at 10% of daily volume.`
-    : "Every position can be sold within one trading day at 10% of daily volume.";
 }
 
 // ------------------------------------------------------------------ Correlation tab
