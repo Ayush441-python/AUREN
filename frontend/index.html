@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0C0C0E">
+  <title>AUREN – See the risk before it sees you</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/jpeg" href="logo.jpeg">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#workspace">Skip to results</a>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand" aria-label="AUREN risk intelligence">
+        <img class="brand-logo" src="logo.jpeg" alt="" width="44" height="44">
+        <span class="brand-name">AUREN</span>
+        <span class="brand-sub">Risk intelligence</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="shell">
+    <!-- ===== Sidebar ===== -->
+    <aside class="sidebar" aria-label="Portfolio inputs">
+      <section class="side-block">
+        <label class="side-label" for="preset-select">Starting portfolio</label>
+        <select id="preset-select" class="field">
+          <option>Custom / Edited</option>
+          <option selected>Balanced Tech &amp; Crypto (Default)</option>
+          <option>Magnificent 7 Tech Heavy</option>
+          <option>Diversified All-Weather</option>
+          <option>High Conviction Semiconductor</option>
+        </select>
+      </section>
+
+      <section class="side-block">
+        <div class="side-head">
+          <span class="side-label" id="holdings-label">Holdings</span>
+          <button class="link-btn" type="button" id="btn-add">Add holding</button>
+        </div>
+        <div id="assets-inputs" class="asset-list" role="group" aria-labelledby="holdings-label"></div>
+        <div class="total-row">
+          <span id="total-chip" class="chip ok" aria-live="polite">Total 100.0%</span>
+          <button id="btn-normalize" class="btn btn-ghost btn-sm" type="button" hidden>Scale to 100%</button>
+        </div>
+      </section>
+
+      <section class="side-block">
+        <label class="side-label" for="portfolio-value">Portfolio size (USD)</label>
+        <input id="portfolio-value" class="field" type="number" value="10000" min="100" step="500" inputmode="numeric">
+      </section>
+
+      <button id="btn-analyze" class="btn btn-primary btn-block" type="button">
+        <span class="btn-label">Run risk analysis</span>
+        <span class="spinner" aria-hidden="true" hidden></span>
+      </button>
+
+      <div class="score-mini" aria-live="polite">
+        <div class="score-mini-top">
+          <div><span id="sb-score" class="score-mini-num">–</span><span class="score-mini-of"> / 100</span></div>
+          <span id="sb-level" class="badge muted">Not scored</span>
+        </div>
+        <div class="meter"><i id="sb-bar"></i></div>
+      </div>
+
+      <details class="drawer">
+        <summary>Import from a Base wallet</summary>
+        <div class="drawer-body">
+          <label class="side-label" for="wallet-address">Public address</label>
+          <div class="input-row">
+            <input id="wallet-address" class="field" type="text" placeholder="0x…" spellcheck="false" autocomplete="off">
+            <button id="btn-wallet" class="btn btn-ghost" type="button">Load</button>
+          </div>
+          <div id="wallet-msg" class="note" hidden></div>
+          <p class="hint">Read-only. AUREN reads public token balances and never stores addresses. Never paste a private key or seed phrase.</p>
+        </div>
+      </details>
+
+      <details class="drawer">
+        <summary>Server settings</summary>
+        <div class="drawer-body">
+          <label class="side-label" for="api-base-url">Backend URL</label>
+          <input id="api-base-url" class="field" type="url" placeholder="Detected automatically">
+          <button id="btn-health" class="btn btn-ghost btn-sm" type="button">Check connection</button>
+        </div>
+      </details>
+
+      <p class="hint center">Analytics only, not investment advice.</p>
+    </aside>
+
+    <!-- ===== Workspace ===== -->
+    <main id="workspace" class="workspace" tabindex="-1">
+      <div id="loadbar" class="loadbar" hidden></div>
+      <div id="alert-banner" class="alert" role="alert" hidden></div>
+
+      <div class="page-head"><h1>Portfolio risk review</h1><p>See the risk before it sees you. Every score is built from auditable rules.</p></div>
+
+      <nav class="tabs" role="tablist" aria-label="Analysis sections">
+        <button class="tab active" role="tab" id="t-pf" aria-controls="tab-pf" aria-selected="true">Portfolio</button>
+        <button class="tab" role="tab" id="t-conc" aria-controls="tab-conc" aria-selected="false" tabindex="-1">Concentration</button>
+        <button class="tab" role="tab" id="t-score" aria-controls="tab-score" aria-selected="false" tabindex="-1">Risk score</button>
+        <button class="tab" role="tab" id="t-risk" aria-controls="tab-risk" aria-selected="false" tabindex="-1">History</button>
+        <button class="tab" role="tab" id="t-stress" aria-controls="tab-stress" aria-selected="false" tabindex="-1">Stress tests</button>
+        <button class="tab" role="tab" id="t-liq" aria-controls="tab-liq" aria-selected="false" tabindex="-1">Liquidity</button>
+        <button class="tab" role="tab" id="t-corr" aria-controls="tab-corr" aria-selected="false" tabindex="-1">Correlation</button>
+        <button class="tab" role="tab" id="t-whatif" aria-controls="tab-whatif" aria-selected="false" tabindex="-1">What-if</button>
+        <button class="tab" role="tab" id="t-ai" aria-controls="tab-ai" aria-selected="false" tabindex="-1">AI report</button>
+      </nav>
+
+      <!-- Portfolio -->
+      <section id="tab-pf" class="panel active" role="tabpanel" aria-labelledby="t-pf">
+        <div class="grid g4">
+          <div class="kpi"><span class="kpi-label">Portfolio value</span><span id="kpi-value" class="kpi-val">–</span><span class="kpi-sub">Set in the sidebar</span></div>
+          <div class="kpi"><span class="kpi-label">Largest holding</span><span id="kpi-top" class="kpi-val">–</span><span class="kpi-sub">Share of the portfolio</span></div>
+          <div class="kpi"><span class="kpi-label">Effective assets</span><span id="kpi-eff" class="kpi-val gold">–</span><span id="kpi-eff-sub" class="kpi-sub">–</span></div>
+          <div class="kpi"><span class="kpi-label">Largest sector</span><span id="kpi-sector" class="kpi-val">–</span><span id="kpi-sector-sub" class="kpi-sub">–</span></div>
+        </div>
+        <div class="grid g2 gap-top">
+          <div class="box">
+            <h2>Holdings</h2><p class="sub">Each asset with its industry and dollar value.</p>
+            <div class="scroll"><table class="table"><thead><tr><th>Ticker</th><th>Industry</th><th>Risk group</th><th class="num">Weight</th><th class="num">Value</th></tr></thead><tbody id="holdings-body"></tbody></table></div>
+          </div>
+          <div class="box">
+            <h2>Allocation</h2><p class="sub">Share of the portfolio by holding.</p>
+            <div class="chart chart-md"><canvas id="allocationChart" role="img" aria-label="Allocation doughnut chart"></canvas></div>
+          </div>
+        </div>
+        <div class="box gap-top">
+          <h2>Risk-group exposure</h2>
+          <p class="sub">Related industries are grouped to expose hidden clusters. The dashed line marks the 50% rule.</p>
+          <div class="chart chart-sm"><canvas id="sectorChart" role="img" aria-label="Exposure by risk group"></canvas></div>
+        </div>
+        <div id="wallet-box" class="box gap-top" hidden>
+          <h2>Tokenized stocks found in your wallet</h2>
+          <p class="sub">Value is token balance × Chainlink reference price, which can be stale outside market hours.</p>
+          <div class="scroll"><table class="table"><thead><tr><th>Token</th><th>Underlying</th><th class="num">Tokens</th><th class="num">Shares</th><th class="num">Price</th><th class="num">Value</th><th>Analysed</th></tr></thead><tbody id="wallet-body"></tbody></table></div>
+        </div>
+      </section>
+
+      <!-- Concentration -->
+      <section id="tab-conc" class="panel" role="tabpanel" aria-labelledby="t-conc" hidden>
+        <div class="grid g4">
+          <div class="kpi"><span class="kpi-label">Largest holding</span><span id="c-top" class="kpi-val">–</span><span class="kpi-sub">Above 30% adds 20 points</span></div>
+          <div class="kpi"><span class="kpi-label">Top 3 holdings</span><span id="c-top3" class="kpi-val">–</span><span class="kpi-sub">Combined share</span></div>
+          <div class="kpi"><span class="kpi-label">Effective assets</span><span id="c-eff" class="kpi-val gold">–</span><span class="kpi-sub">Acts like this many equal holdings</span></div>
+          <div class="kpi"><span class="kpi-label">Concentration index</span><span id="c-hhi" class="kpi-val">–</span><span class="kpi-sub">1.00 is one asset, 0.10 is well spread</span></div>
+        </div>
+        <div class="box gap-top">
+          <h2>Holdings by weight</h2><p class="sub">The dashed line is the 30% single-holding rule.</p>
+          <div class="chart chart-sm"><canvas id="concChart" role="img" aria-label="Holdings by weight"></canvas></div>
+        </div>
+        <div id="c-warn" class="callout gap-top"></div>
+        <div id="c-shock" class="callout muted"></div>
+        <details class="drawer wide gap-top"><summary>How the numbers are calculated</summary><div id="c-math" class="drawer-body"></div></details>
+      </section>
+
+      <!-- Risk score -->
+      <section id="tab-score" class="panel" role="tabpanel" aria-labelledby="t-score" hidden>
+        <div class="grid split">
+          <div class="box gauge-box">
+            <h2>Total risk score</h2>
+            <svg class="gauge" viewBox="0 0 200 118" role="img" aria-label="Risk score gauge">
+              <path class="gauge-track" pathLength="100" d="M20 100 A80 80 0 0 1 180 100"/>
+              <path id="gauge-fill" class="gauge-fill" pathLength="100" d="M20 100 A80 80 0 0 1 180 100" style="stroke-dasharray:0 100"/>
+              <text id="gauge-val" x="100" y="92" text-anchor="middle">–</text>
+              <text x="100" y="112" text-anchor="middle" class="gauge-of">out of 100</text>
+            </svg>
+            <span id="gauge-level" class="badge muted">Not scored</span>
+            <p class="hint center">Calculated only from fixed, auditable rules. No black-box inputs.</p>
+          </div>
+          <div class="box">
+            <h2>What drove the score</h2><p class="sub">Every point comes from one of the rules below.</p>
+            <div id="hits"><div class="callout muted">Run an analysis to see the breakdown.</div></div>
+          </div>
+        </div>
+        <details class="drawer wide gap-top" open>
+          <summary>Full rulebook (6 rules)</summary>
+          <div class="drawer-body">
+            <div class="scroll"><table class="table">
+              <thead><tr><th>Points</th><th>Rule</th><th>Why it matters</th></tr></thead>
+              <tbody>
+                <tr><td><span class="chip bad">+20</span></td><td>Largest holding is over 30%</td><td>One asset can sink the portfolio</td></tr>
+                <tr><td><span class="chip bad">+15</span></td><td>Effective assets below 4</td><td>Little real diversification</td></tr>
+                <tr><td><span class="chip bad">+20</span></td><td>Volatility over 30% a year</td><td>Returns swing widely</td></tr>
+                <tr><td><span class="chip bad">+15</span></td><td>Worst fall deeper than −30%</td><td>Deep losses in the last 2 years</td></tr>
+                <tr><td><span class="chip bad">+15</span></td><td>Two or more pairs with correlation above 0.7</td><td>Holdings tend to fall together</td></tr>
+                <tr><td><span class="chip bad">+15</span></td><td>More than 50% in one risk group</td><td>One theme drives the outcome</td></tr>
+              </tbody>
+            </table></div>
+          </div>
+        </details>
+      </section>
+
+      <!-- History -->
+      <section id="tab-risk" class="panel" role="tabpanel" aria-labelledby="t-risk" hidden>
+        <div class="grid g4">
+          <div class="kpi"><span class="kpi-label">Volatility</span><span id="h-vol" class="kpi-val gold">–</span><span class="kpi-sub">Annualised daily swings</span></div>
+          <div class="kpi"><span class="kpi-label">Worst drawdown</span><span id="h-mdd" class="kpi-val danger">–</span><span class="kpi-sub">Deepest peak-to-trough fall</span></div>
+          <div class="kpi"><span class="kpi-label">Worst single day</span><span id="h-day" class="kpi-val">–</span><span class="kpi-sub">Biggest one-session drop</span></div>
+          <div class="kpi"><span class="kpi-label">Worst 21-day stretch</span><span id="h-month" class="kpi-val">–</span><span class="kpi-sub">About one trading month</span></div>
+        </div>
+        <div class="box gap-top"><h2>Price history</h2><p class="sub">Every asset starts at 100. The gold line is your portfolio.</p>
+          <div class="chart chart-lg"><canvas id="priceChart" role="img" aria-label="Rebased price history"></canvas></div></div>
+        <div class="box gap-top"><h2>Drawdown</h2><p class="sub">How far the portfolio sat below its previous peak.</p>
+          <div class="chart chart-md"><canvas id="ddChart" role="img" aria-label="Drawdown over time"></canvas></div></div>
+      </section>
+
+      <!-- Stress -->
+      <section id="tab-stress" class="panel" role="tabpanel" aria-labelledby="t-stress" hidden>
+        <h2 class="lead">Stress tests</h2><p class="sub">See how your exact holdings would react to severe market shocks.</p>
+        <div id="stress-cards" class="grid g4"></div>
+        <div class="box gap-top"><h2>Scenario comparison</h2>
+          <div class="scroll"><table class="table"><thead><tr><th>Scenario</th><th class="num">Impact</th><th class="num">Estimated change</th><th class="num">Value after</th></tr></thead><tbody id="stress-body"></tbody></table></div></div>
+        <div class="box gap-top"><h2>Build your own shock</h2><p class="sub">Set an expected move for each risk group.</p>
+          <div id="sliders" class="sliders"></div>
+          <div class="grid split gap-top center-y">
+            <div class="kpi center"><span class="kpi-label">Your scenario</span><span id="custom-val" class="kpi-val">0.0%</span><span id="custom-dollar" class="kpi-sub">–</span></div>
+            <div id="custom-note" class="callout muted">Move a slider to see the effect on your portfolio.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Liquidity -->
+      <section id="tab-liq" class="panel" role="tabpanel" aria-labelledby="t-liq" hidden>
+        <h2 class="lead">Liquidity</h2><p class="sub">How many trading days it would take to sell each holding while staying under 10% of its daily volume.</p>
+        <div class="grid g3">
+          <div class="kpi"><span class="kpi-label">Slowest exit</span><span id="l-max" class="kpi-val">–</span><span id="l-ticker" class="kpi-sub">–</span></div>
+          <div class="kpi"><span class="kpi-label">Volume share used</span><span class="kpi-val">10%</span><span class="kpi-sub">A conservative selling pace</span></div>
+          <div class="kpi"><span class="kpi-label">Volume window</span><span class="kpi-val gold">30 days</span><span class="kpi-sub">Average daily traded value</span></div>
+        </div>
+        <div class="box gap-top"><div class="scroll"><table class="table"><thead><tr><th>Ticker</th><th class="num">Position</th><th class="num">Daily volume</th><th class="num">Sellable per day</th><th class="num">Days to exit</th><th>Status</th></tr></thead><tbody id="liq-body"></tbody></table></div></div>
+        <div id="liq-note" class="callout muted gap-top"></div>
+      </section>
+
+      <!-- Correlation -->
+      <section id="tab-corr" class="panel" role="tabpanel" aria-labelledby="t-corr" hidden>
+        <div class="grid g2">
+          <div class="kpi"><span class="kpi-label">Most correlated pair</span><span id="r-pair" class="kpi-val">–</span><span id="r-pair-sub" class="kpi-sub">–</span></div>
+          <div class="kpi"><span class="kpi-label">Pairs above 0.7</span><span id="r-count" class="kpi-val gold">0</span><span id="r-total" class="kpi-sub">–</span></div>
+        </div>
+        <div class="box gap-top"><h2>Correlation matrix</h2><p class="sub">Gold cells move together closely (above 0.70). Lower numbers diversify better.</p>
+          <div id="matrix" class="scroll"></div></div>
+        <div id="r-flags" class="gap-top"></div>
+      </section>
+
+      <!-- What-if -->
+      <section id="tab-whatif" class="panel" role="tabpanel" aria-labelledby="t-whatif" hidden>
+        <h2 class="lead">What-if comparison</h2><p class="sub">Change the second portfolio and compare its risk side by side with your current one.</p>
+        <div class="box">
+          <div class="side-head"><span class="side-label" id="wf-label">What-if holdings</span>
+            <span><button id="wf-add" class="link-btn" type="button">Add holding</button> <button id="wf-reset" class="btn btn-ghost btn-sm" type="button">Copy current</button></span></div>
+          <div id="wf-inputs" class="asset-list" role="group" aria-labelledby="wf-label"></div>
+          <div class="total-row"><span id="wf-chip" class="chip ok">Total 100.0%</span>
+            <span class="row-gap"><button id="wf-norm" class="btn btn-ghost btn-sm" type="button" hidden>Scale to 100%</button><button id="wf-run" class="btn btn-primary btn-sm" type="button">Compare</button></span></div>
+        </div>
+        <div class="grid g3 gap-top">
+          <div class="kpi"><span class="kpi-label">Current score</span><span id="wf-cur" class="kpi-val">–</span><span id="wf-cur-tier" class="kpi-sub">–</span></div>
+          <div class="kpi"><span class="kpi-label">What-if score</span><span id="wf-alt" class="kpi-val gold">–</span><span id="wf-alt-tier" class="kpi-sub">–</span></div>
+          <div class="kpi"><span class="kpi-label">Change</span><span id="wf-delta" class="kpi-val">–</span><span id="wf-note" class="kpi-sub">–</span></div>
+        </div>
+        <div class="box gap-top"><h2>Side-by-side metrics</h2>
+          <div class="scroll"><table class="table"><thead><tr><th>Metric</th><th>Current</th><th>What-if</th></tr></thead><tbody id="wf-body"></tbody></table></div></div>
+        <div class="grid g2 gap-top">
+          <div class="box"><h2>Current: rules triggered</h2><div id="wf-cur-rules"></div></div>
+          <div class="box"><h2>What-if: rules triggered</h2><div id="wf-alt-rules"></div></div>
+        </div>
+        <div class="box gap-top"><h2>Drawdown comparison</h2><p class="sub">Both portfolios over the same period.</p>
+          <div class="chart chart-md"><canvas id="wfChart" role="img" aria-label="Drawdown comparison"></canvas></div></div>
+      </section>
+
+      <!-- AI report -->
+      <section id="tab-ai" class="panel" role="tabpanel" aria-labelledby="t-ai" hidden>
+        <h2 class="lead">AI risk report</h2>
+        <p class="sub">The engine calculates every number. The language model only explains them, and every figure it cites is checked.</p>
+        <div class="box">
+          <div class="side-head"><span class="hint">Written by an LLM analyst (Groq) from the metrics in your analysis.</span>
+            <button id="btn-ai" class="btn btn-primary" type="button"><span class="btn-label">Generate report</span><span class="spinner" aria-hidden="true" hidden></span></button></div>
+          <div id="ai-body" class="report" aria-live="polite"><p class="muted-text">Run an analysis first, then generate a report.</p></div>
+          <div id="ai-notice" class="callout muted" hidden></div>
+          <button id="btn-dl" class="btn btn-ghost btn-sm" type="button" hidden>Download report (.md)</button>
+        </div>
+        <details class="drawer wide gap-top"><summary>View the metrics the report is based on</summary>
+          <div class="drawer-body"><pre id="json-inspector" class="code">{}</pre></div></details>
+      </section>
+
+      <footer class="footer">
+        <strong>AUREN</strong> is analytics only, not investment advice. Past performance does not predict future results.
+        Prices and volumes come from Yahoo Finance (unofficial, for demonstration). On-chain balances are read through Base RPC.
+      </footer>
+    </main>
+  </div>
+</body>
+</html>

@@ -74,14 +74,23 @@ streamlit run app.py
 ```
 Open [http://localhost:8501](http://localhost:8501) in your browser.
 
-### 4. Run the Risk API (FastAPI)
+### 4. Run the Next.js Institutional Workstation (New)
+```bash
+cd web
+npm install
+npm run dev
+```
+Open [http://localhost:3000](http://localhost:3000) for the Next.js institutional workstation with Recharts, interactive stress testing sandbox, audited math proofs, and Base wallet integration.
+
+### 5. Run the Risk API (FastAPI)
 ```bash
 uvicorn api:app --reload --port 8000
 ```
 - API Docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 - Interactive Swagger UI to test `/risk` requests.
+- **Classic Web frontend:** served at [http://127.0.0.1:8000/app/](http://127.0.0.1:8000/app/).
 
-### 5. Run the Test Suite
+### 6. Run the Test Suite
 ```bash
 pytest
 ```

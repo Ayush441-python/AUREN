@@ -44,6 +44,11 @@ def load_env() -> None:
 
 
 def secret(name: str):
+    # Only consult Streamlit secrets when running inside Streamlit. Importing it
+    # from the FastAPI server is slow and pointless.
+    import sys
+    if "streamlit" not in sys.modules:
+        return None
     try:
         import streamlit as st
         return st.secrets[name]

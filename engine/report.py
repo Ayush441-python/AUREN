@@ -24,13 +24,31 @@ def clean_output(text: str) -> str:
     return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
 
 
+def _sanitize_for_report(metrics: dict) -> dict:
+    """Strip massive timeseries and chart data before sending to LLM.
+    
+    The raw analysis object contains hundreds of daily points across
+    `price_series`, `drawdown_series`, and `dates` (~35,000+ chars), which
+    causes rate-limit / TPM 413 errors on Groq / LLM providers.
+    The narrative only requires core risk metrics, stress tests, exposures, and reasons.
+    """
+    if not isinstance(metrics, dict):
+        return metrics
+    # Drop timeseries fields
+    chart_keys = {"price_series", "drawdown_series", "dates"}
+    cleaned = {k: v for k, v in metrics.items() if k not in chart_keys}
+    return cleaned
+
+
 def ai_report(metrics: dict, base_url: str, api_key: str, model: str,
               timeout: int = 120) -> str:
     """Call any OpenAI-compatible chat endpoint (Groq, Ollama, OpenRouter, ...)."""
     headers = {"Content-Type": "application/json"}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
-    user = SYSTEM + "\n\nPortfolio metrics JSON:\n" + json.dumps(metrics, default=str)
+    
+    clean_metrics = _sanitize_for_report(metrics)
+    user = SYSTEM + "\n\nPortfolio metrics JSON:\n" + json.dumps(clean_metrics, default=str)
     reasoning = "gpt-oss" in (model or "") or "groq.com" in (base_url or "")
     payload = {
         "model": model,
@@ -46,7 +64,7 @@ def ai_report(metrics: dict, base_url: str, api_key: str, model: str,
         payload["max_tokens"] = 1500
         payload["messages"] = [
             {"role": "system", "content": SYSTEM},
-            {"role": "user", "content": json.dumps(metrics, default=str)},
+            {"role": "user", "content": json.dumps(clean_metrics, default=str)},
         ]
     effort = setting("LLM_REASONING_EFFORT")
     if effort:
