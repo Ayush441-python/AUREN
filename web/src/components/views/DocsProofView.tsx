@@ -2,11 +2,12 @@
 
 import React, { useState } from "react";
 import { ShieldCheck, Code, BookOpen, Terminal, Check, Copy } from "lucide-react";
+import { PUBLIC_API_BASE_URL } from "@/lib/api";
 
 export function DocsProofView() {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
-  const curlExample = `curl -X POST https://api.auren.fi/risk \\
+  const curlExample = `curl -X POST ${PUBLIC_API_BASE_URL}/risk \\
   -H "Content-Type: application/json" \\
   -d '{
     "weights": {
