@@ -107,3 +107,26 @@ def test_wallet_endpoint_shape(monkeypatch):
     assert data["portfolio"] == {"NVDA": 1.0}
     assert data["holdings"][0]["ticker"] == "NVDA"
     assert data["total_value"] == 200.0
+
+
+def test_wallet_portfolio_preserves_positive_small_weights(monkeypatch):
+    import pandas as pd
+    import api as api_module
+
+    rows = [
+        {"ticker": "NVDA", "value": 30_000.0, "supported": True},
+        {"ticker": "USDC", "value": 0.01, "supported": True},
+    ]
+    prices = pd.DataFrame(
+        {"NVDA": [120 + i / 10 for i in range(40)], "USDC": [1.0] * 40},
+        index=pd.bdate_range("2026-09-01", periods=40),
+    )
+    monkeypatch.setattr(api_module, "wallet_holdings",
+                        lambda *args: {"rows": rows, "n_tokens": len(rows)})
+    monkeypatch.setattr(api_module, "load_prices", lambda *args, **kwargs: prices)
+
+    imported = client.post("/wallet", json={"address": "0x" + "1" * 40})
+    assert imported.status_code == 200
+    weights = imported.json()["portfolio"]
+    assert 0 < weights["USDC"] < 0.000001
+    assert client.post("/risk", json={"weights": weights}).status_code == 200
