@@ -425,7 +425,7 @@ def inspect_wallet(payload: WalletRequest):
     rows = info["rows"]
     df, total, skipped = holdings_to_portfolio(rows)
     # {ticker: weight as a fraction of 1}, which is what the frontend expects
-    portfolio = {str(r["ticker"]): round(float(r["weight"]) / 100, 6) for _, r in df.iterrows()}
+    portfolio = {str(r["ticker"]): float(r["weight"]) / 100 for _, r in df.iterrows()}
     has_holdings = len(portfolio) > 0 and total > 0
 
     return _json_safe({
