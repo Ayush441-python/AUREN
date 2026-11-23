@@ -562,15 +562,31 @@ function cloneToWhatIf() {
   updateWhatIfTotal();
 }
 
+function clearWhatIf(msg) {
+  whatIf = null;
+  $("wf-alt").textContent = "—";
+  $("wf-alt-tier").textContent = "";
+  $("wf-delta").textContent = "—";
+  $("wf-delta").className = "kpi-val";
+  $("wf-note").textContent = "";
+  $("wf-body").innerHTML = "";
+  $("wf-alt-rules").innerHTML = "";
+  if (charts["wfChart"]) {
+    try { charts["wfChart"].destroy(); } catch (_) {}
+    delete charts["wfChart"];
+  }
+  if (msg) showAlert(msg);
+}
+
 async function runWhatIf() {
   if (!analysis) return showAlert("Run the analysis on your current portfolio first.");
   const weights = readWeights("wf-inputs"), total = sum(weights);
-  if (!Object.keys(weights).length) return showAlert("Add at least one what-if holding.");
-  if (Math.abs(total - 100) > 0.1) return showAlert(`What-if weights add up to ${total.toFixed(1)}%. They need to total 100%.`);
+  if (!Object.keys(weights).length) return clearWhatIf("Add at least one what-if holding.");
+  if (Math.abs(total - 100) > 0.1) return clearWhatIf(`What-if weights add up to ${total.toFixed(1)}%. They need to total 100%.`);
   showAlert(null);
   const btn = $("wf-run"); btn.disabled = true; btn.textContent = "Comparing…";
   try { whatIf = await api("/risk", { method: "POST", body: { weights, period: "2y" } }); renderWhatIf(analysis, whatIf); }
-  catch (e) { showAlert(`What-if failed: ${e.message}`); }
+  catch (e) { clearWhatIf(`What-if failed: ${e.message}`); }
   finally { btn.disabled = false; btn.textContent = "Compare"; }
 }
 
