@@ -16,11 +16,14 @@ export function NumbersUsedDrawer({ isOpen, onClose, data }: NumbersUsedDrawerPr
 
   if (!isOpen) return null;
 
+  const largestSector = Object.entries(data.sector_exposure).sort((a, b) => b[1] - a[1])[0];
+  const observationCount = data.dates.length;
   const rawJson = JSON.stringify(
     {
       deterministic_score: data.score,
       risk_level: data.level,
-      covariance_lookback_days: 252,
+      price_observations: observationCount,
+      scoring_rule_hits: data.hits,
       concentration_metrics: data.concentration,
       annualized_volatility: data.volatility,
       max_historical_drawdown: data.max_drawdown,
@@ -66,11 +69,10 @@ export function NumbersUsedDrawer({ isOpen, onClose, data }: NumbersUsedDrawerPr
           <div className="rounded-lg border border-[#26262C] bg-[#1C1C21] p-3.5">
             <div className="flex items-center gap-2 text-xs font-semibold text-[#7FB3A6]">
               <ShieldCheck className="h-4 w-4" />
-              <span>Deterministic Rule Proof Guarantee</span>
+              <span>Risk Score Inputs</span>
             </div>
             <p className="mt-1 text-xs text-[#A1A4AB] leading-relaxed">
-              Every score is computed strictly using closed-form statistical formulas on 252 trading days of aligned price data.
-              No probabilistic models or opaque black-box heuristics are applied.
+              The analysis contains {observationCount} aligned price observations.
             </p>
           </div>
 
@@ -85,7 +87,7 @@ export function NumbersUsedDrawer({ isOpen, onClose, data }: NumbersUsedDrawerPr
                   <tr>
                     <th className="px-3.5 py-2 font-medium">Metric</th>
                     <th className="px-3.5 py-2 font-medium text-right">Computed Value</th>
-                    <th className="px-3.5 py-2 font-medium">Threshold / Formula</th>
+                    <th className="px-3.5 py-2 font-medium">Calculation</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#26262C] text-[#F5F6F7]">
@@ -94,14 +96,14 @@ export function NumbersUsedDrawer({ isOpen, onClose, data }: NumbersUsedDrawerPr
                     <td className="px-3.5 py-2 text-right font-mono text-[#E3B341]">
                       {formatPercent(data.concentration.top_weight)}
                     </td>
-                    <td className="px-3.5 py-2 text-[#A1A4AB]">&gt; 25.0% adds penalty</td>
+                    <td className="px-3.5 py-2 text-[#A1A4AB]">Largest holding weight</td>
                   </tr>
                   <tr>
                     <td className="px-3.5 py-2 font-medium">Top 3 Combined</td>
                     <td className="px-3.5 py-2 text-right font-mono">
                       {formatPercent(data.concentration.top3_weight)}
                     </td>
-                    <td className="px-3.5 py-2 text-[#A1A4AB]">&gt; 60.0% adds penalty</td>
+                    <td className="px-3.5 py-2 text-[#A1A4AB]">Sum of the three largest holding weights</td>
                   </tr>
                   <tr>
                     <td className="px-3.5 py-2 font-medium">HHI Index</td>
@@ -134,22 +136,40 @@ export function NumbersUsedDrawer({ isOpen, onClose, data }: NumbersUsedDrawerPr
                   <tr>
                     <td className="px-3.5 py-2 font-medium">Max Sector Exposure</td>
                     <td className="px-3.5 py-2 text-right font-mono">
-                      {Object.entries(data.sector_exposure).sort((a, b) => b[1] - a[1])[0]
-                        ? `${Object.entries(data.sector_exposure).sort((a, b) => b[1] - a[1])[0][0]}: ${formatPercent(Object.entries(data.sector_exposure).sort((a, b) => b[1] - a[1])[0][1])}`
+                      {largestSector
+                        ? `${largestSector[0]}: ${formatPercent(largestSector[1])}`
                         : "—"}
                     </td>
-                    <td className="px-3.5 py-2 text-[#A1A4AB]">&gt; 40.0% adds penalty</td>
+                    <td className="px-3.5 py-2 text-[#A1A4AB]">Largest combined group weight</td>
                   </tr>
                 </tbody>
               </table>
             </div>
           </div>
 
+          <div>
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-[#6B6E76] mb-2.5">
+              Scoring Rules Triggered
+            </h3>
+            {data.hits.length > 0 ? (
+              <ul className="space-y-2 text-xs text-[#F5F6F7]">
+                {data.hits.map(([points, reason]) => (
+                  <li key={reason} className="flex items-start gap-2">
+                    <span className="font-mono text-[#E3B341]">+{points}</span>
+                    <span>{reason}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-[#A1A4AB]">No scoring rules triggered.</p>
+            )}
+          </div>
+
           {/* Raw JSON Payload */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-semibold uppercase tracking-wider text-[#6B6E76]">
-                Exact Machine Output (JSON)
+                Audit Data (JSON)
               </span>
               <button
                 onClick={handleCopy}
