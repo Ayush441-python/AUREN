@@ -20,6 +20,7 @@ export default function WorkstationPage() {
   const [activeTab, setActiveTab] = useState<NavTab>("overview");
   const [portfolioName, setPortfolioName] = useState("Balanced Multi-Asset");
   const [data, setData] = useState<RiskAnalysis>(BASE_PORTFOLIO_ANALYSIS);
+  const [simulatedData, setSimulatedData] = useState<RiskAnalysis | null>(null);
   const [builderModalOpen, setBuilderModalOpen] = useState(false);
   const [walletModalOpen, setWalletModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -54,6 +55,7 @@ export default function WorkstationPage() {
   ) => {
     setPortfolioName(name);
     setLoading(true);
+    setSimulatedData(null);
 
     try {
       const live = await calculateRisk(weights);
@@ -77,13 +79,17 @@ export default function WorkstationPage() {
     try {
       const live = await calculateRisk(newWeights);
       if (live && live.score !== undefined) {
-        setData(live);
+        setSimulatedData(live);
       }
     } catch (e) {
       // keep current data
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleResetSimulation = () => {
+    setSimulatedData(null);
   };
 
   return (
@@ -105,7 +111,12 @@ export default function WorkstationPage() {
       {activeTab === "correlation" && <CorrelationView data={data} />}
 
       {activeTab === "stress" && (
-        <StressView data={data} onSimulate={handleSimulate} />
+        <StressView
+          data={simulatedData || data}
+          baselineData={data}
+          onSimulate={handleSimulate}
+          onReset={handleResetSimulation}
+        />
       )}
 
       {activeTab === "report" && <ReportView data={data} />}

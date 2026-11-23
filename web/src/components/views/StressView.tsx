@@ -1,18 +1,25 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { RiskAnalysis } from "@/lib/types";
 import { formatPercent } from "@/lib/format";
 import { Activity, Sliders, RotateCcw, AlertTriangle, ShieldCheck } from "lucide-react";
 
 interface StressViewProps {
   data: RiskAnalysis;
+  baselineData?: RiskAnalysis;
   onSimulate?: (newWeights: Record<string, number>) => void;
+  onReset?: () => void;
 }
 
-export function StressView({ data, onSimulate }: StressViewProps) {
-  const initialWeights = { ...data.normalized_weights };
+export function StressView({ data, baselineData, onSimulate, onReset }: StressViewProps) {
+  const base = baselineData || data;
+  const initialWeights = { ...base.normalized_weights };
   const [weights, setWeights] = useState<Record<string, number>>(initialWeights);
+
+  useEffect(() => {
+    setWeights({ ...(baselineData || data).normalized_weights });
+  }, [baselineData, data]);
 
   const handleWeightChange = (ticker: string, newPct: number) => {
     const updated = { ...weights, [ticker]: newPct / 100 };
@@ -20,7 +27,9 @@ export function StressView({ data, onSimulate }: StressViewProps) {
   };
 
   const handleReset = () => {
-    setWeights(initialWeights);
+    const orig = { ...(baselineData || data).normalized_weights };
+    setWeights(orig);
+    if (onReset) onReset();
   };
 
   // Compute total weight to display normalization feedback
