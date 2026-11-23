@@ -23,6 +23,12 @@ interface OverviewViewProps {
 export function OverviewView({ data, onNavigateTab }: OverviewViewProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  // Sort primary risk drivers by score impact descending, preserving rule declaration order for ties
+  const sortedDrivers: string[] =
+    data.hits && data.hits.length > 0
+      ? [...data.hits].sort(([pA], [pB]) => pB - pA).map(([_, reason]) => reason)
+      : data.reasons;
+
   // Find the most severe stress test impact
   const worstStressEntry = Object.entries(data.stress).sort((a, b) => a[1] - b[1])[0];
 
@@ -122,12 +128,12 @@ export function OverviewView({ data, onNavigateTab }: OverviewViewProps) {
                 </p>
               </div>
               <span className="font-mono text-[11px] text-[#6B6E76] bg-[#0E0E10] px-2.5 py-1 rounded border border-[#26262C]">
-                {data.reasons.length} Factors Identified
+                {sortedDrivers.length} Factors Identified
               </span>
             </div>
 
             <div className="space-y-3 mt-4">
-              {data.reasons.map((reason, i) => (
+              {sortedDrivers.map((reason, i) => (
                 <div
                   key={i}
                   className="flex items-start gap-3.5 rounded-lg border border-[#26262C] bg-[#1C1C21] p-3.5 text-xs sm:text-sm leading-relaxed"
