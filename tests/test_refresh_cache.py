@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 
 from engine import data
+from engine.universe import SECTORS
 
 
 class InterruptedFrame:
@@ -64,22 +65,36 @@ def test_failed_refresh_preserves_previous_cache(monkeypatch, cache_dir, filenam
 
 def test_refresh_replaces_both_caches(monkeypatch, cache_dir):
     index = pd.DatetimeIndex(["2026-01-06"], name="Date")
-    prices = pd.DataFrame({"MSFT": [200.5]}, index=index)
-    volumes = pd.DataFrame({"MSFT": [500]}, index=index)
-    monkeypatch.setattr(data, "load_prices", lambda tickers, **kwargs: prices)
-    monkeypatch.setattr(data, "load_volumes", lambda tickers, **kwargs: volumes)
+    tickers = list(SECTORS)
+    prices = pd.DataFrame({ticker: [200.5] for ticker in tickers}, index=index)
+    volumes = pd.DataFrame({ticker: [500] for ticker in tickers}, index=index)
+    stale = pd.DataFrame(
+        {ticker: [1] for ticker in tickers},
+        index=pd.DatetimeIndex(["2026-01-05"], name="Date"),
+    )
+    for field in ("Close", "Volume"):
+        data._memo[(field, tuple(sorted(tickers)), "2y")] = (time.time(), stale)
+    downloaded_fields = []
+
+    def download(field, requested_tickers, period):
+        downloaded_fields.append(field)
+        return prices if field == "Close" else volumes
+
+    monkeypatch.setattr(data, "_download", download)
 
     runpy.run_module("scripts.refresh_cache", run_name="__main__")
 
+    assert downloaded_fields == ["Close", "Volume"]
     for filename, expected in (("prices.csv", prices), ("volume.csv", volumes)):
         actual = pd.read_csv(cache_dir / filename, index_col=0, parse_dates=True)
         pd.testing.assert_frame_equal(actual, expected)
     assert {entry.name for entry in cache_dir.iterdir()} == {"prices.csv", "volume.csv"}
 
 
+@pytest.mark.parametrize("failed_field", ["Close", "Volume"])
 @pytest.mark.parametrize("download_result", [None, pd.DataFrame()], ids=["yahoo-error", "empty-data"])
 def test_refresh_aborts_without_new_download_and_preserves_both_caches(
-    monkeypatch, cache_dir, download_result
+    monkeypatch, cache_dir, failed_field, download_result
 ):
     prices_path = cache_dir / "prices.csv"
     volumes_path = cache_dir / "volume.csv"
@@ -89,9 +104,15 @@ def test_refresh_aborts_without_new_download_and_preserves_both_caches(
         {"MSFT": [200]},
         index=pd.DatetimeIndex(["2026-01-06"], name="Date"),
     )
+    fresh_volumes = pd.DataFrame(
+        {"MSFT": [500]},
+        index=pd.DatetimeIndex(["2026-01-06"], name="Date"),
+    )
 
     def download(field, tickers, period):
-        return fresh_prices if field == "Close" else download_result
+        if field == failed_field:
+            return download_result
+        return fresh_prices if field == "Close" else fresh_volumes
 
     monkeypatch.setattr(data, "_download", download)
 
