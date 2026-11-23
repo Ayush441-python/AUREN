@@ -151,29 +151,30 @@ export function PortfolioBuilderModal({
           {tab === "presets" && (
             <div className="space-y-3">
               {PRESET_PORTFOLIOS.map((preset) => (
-                <div
+                <button
+                  type="button"
                   key={preset.name}
                   onClick={() => {
                     onApplyPortfolio(preset.weights, preset.name);
                     onClose();
                   }}
-                  className="group flex items-center justify-between rounded-lg border border-[#26262C] bg-[#1C1C21] p-4 transition hover:border-[#E3B341] hover:bg-[#202026] cursor-pointer"
+                  className="group flex w-full items-center justify-between rounded-lg border border-[#26262C] bg-[#1C1C21] p-4 transition hover:border-[#E3B341] hover:bg-[#202026] cursor-pointer text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E3B341]"
                 >
-                  <div>
-                    <h3 className="text-sm font-semibold text-[#F5F6F7] group-hover:text-[#E3B341]">
+                  <span>
+                    <span className="block text-sm font-semibold text-[#F5F6F7] group-hover:text-[#E3B341]">
                       {preset.name}
-                    </h3>
-                    <p className="text-xs text-[#A1A4AB] mt-0.5">{preset.description}</p>
-                    <div className="mt-2 flex flex-wrap gap-1.5 font-mono text-[11px] text-[#6B6E76]">
+                    </span>
+                    <span className="block text-xs text-[#A1A4AB] mt-0.5">{preset.description}</span>
+                    <span className="mt-2 flex flex-wrap gap-1.5 font-mono text-[11px] text-[#6B6E76]">
                       {Object.entries(preset.weights).map(([ticker, weight]) => (
                         <span key={ticker} className="rounded bg-[#0E0E10] px-1.5 py-0.5 border border-[#26262C]">
                           {ticker}: {(weight * 100).toFixed(0)}%
                         </span>
                       ))}
-                    </div>
-                  </div>
+                    </span>
+                  </span>
                   <ArrowRight className="h-4 w-4 text-[#6B6E76] group-hover:text-[#E3B341]" />
-                </div>
+                </button>
               ))}
             </div>
           )}
