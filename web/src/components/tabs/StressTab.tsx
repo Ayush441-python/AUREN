@@ -67,14 +67,14 @@ export function StressTab({ analysis, portfolioSize }: Props) {
                       {(impact * 100).toFixed(1)}%
                     </span>
                     <span className="text-xs font-mono font-medium text-zinc-400 tabular-nums">
-                      ${Math.abs(Math.round(dollarImpact)).toLocaleString()}
+                      ${Math.abs(Math.round(portfolioSize * impact)).toLocaleString()}
                     </span>
                   </div>
                 </div>
                 <div className="text-[11px] text-zinc-400 mt-3 pt-2.5 border-t border-white/[0.06] flex items-center justify-between font-mono">
                   <span>After Shock:</span>
                   <span className="font-bold text-zinc-200">
-                    ${Math.round(portfolioSize + dollarImpact).toLocaleString()}
+                    ${Math.round(portfolioSize + (portfolioSize * impact)).toLocaleString()}
                   </span>
                 </div>
               </div>
