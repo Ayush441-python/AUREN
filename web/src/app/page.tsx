@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { AppShell } from "@/components/shell/AppShell";
 import { NavTab } from "@/components/shell/Sidebar";
 import { BASE_PORTFOLIO_ANALYSIS } from "@/lib/mock";
@@ -23,6 +23,7 @@ export default function WorkstationPage() {
   const [builderModalOpen, setBuilderModalOpen] = useState(false);
   const [walletModalOpen, setWalletModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const customAppliedRef = useRef(false);
 
   // Real Web3 EVM Hook
   const {
@@ -38,7 +39,7 @@ export default function WorkstationPage() {
     async function loadInitial() {
       try {
         const live = await calculateRisk(BASE_PORTFOLIO_ANALYSIS.normalized_weights);
-        if (live && live.score !== undefined) {
+        if (live && live.score !== undefined && !customAppliedRef.current) {
           setData(live);
         }
       } catch (e) {
@@ -52,6 +53,7 @@ export default function WorkstationPage() {
     weights: Record<string, number>,
     name: string
   ) => {
+    customAppliedRef.current = true;
     setPortfolioName(name);
     setLoading(true);
 
@@ -73,6 +75,7 @@ export default function WorkstationPage() {
   };
 
   const handleSimulate = async (newWeights: Record<string, number>) => {
+    customAppliedRef.current = true;
     setLoading(true);
     try {
       const live = await calculateRisk(newWeights);
