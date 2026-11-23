@@ -127,7 +127,10 @@ export function OverviewView({ data, onNavigateTab }: OverviewViewProps) {
             </div>
 
             <div className="space-y-3 mt-4">
-              {data.reasons.map((reason, i) => (
+              {((data.hits && data.hits.length > 0)
+                ? [...data.hits].sort(([left], [right]) => right - left).map(([, why]) => why)
+                : data.reasons
+              ).map((reason, i) => (
                 <div
                   key={i}
                   className="flex items-start gap-3.5 rounded-lg border border-[#26262C] bg-[#1C1C21] p-3.5 text-xs sm:text-sm leading-relaxed"
