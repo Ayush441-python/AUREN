@@ -9,7 +9,7 @@ from engine.metrics import (
     sector_exposure,
 )
 from engine.score import risk_score
-from engine.stress import stress
+from engine.stress import SCENARIOS, stress
 
 
 def test_equal_weights_effective_assets():
@@ -73,3 +73,14 @@ def test_stress_scenario():
     w = pd.Series([0.5, 0.5], index=["NVDA", "GLD"])
     shocks = {"Big Tech": -0.20}
     assert stress(w, shocks) == pytest.approx(-0.10)
+
+
+def test_broad_market_etfs_and_xlk_stress_scenarios():
+    etfs = ["SPY", "QQQ", "VOO", "VTI", "IWM", "DIA", "XLK"]
+    for t in etfs:
+        w = pd.Series({t: 1.0})
+        s = stress(w, SCENARIOS["Broad selloff"])
+        assert s == pytest.approx(-0.10)
+
+    # XLK should also receive tech shock in "Big Tech falls 20%"
+    assert stress(pd.Series({"XLK": 1.0}), SCENARIOS["Big Tech falls 20%"]) == pytest.approx(-0.20)
