@@ -9,7 +9,8 @@ from engine.metrics import (
     sector_exposure,
 )
 from engine.score import risk_score
-from engine.stress import stress
+from engine.stress import SCENARIOS, stress
+from engine.universe import classify_and_register_ticker
 
 
 def test_equal_weights_effective_assets():
@@ -73,3 +74,23 @@ def test_stress_scenario():
     w = pd.Series([0.5, 0.5], index=["NVDA", "GLD"])
     shocks = {"Big Tech": -0.20}
     assert stress(w, shocks) == pytest.approx(-0.10)
+
+
+@pytest.mark.parametrize(
+    "weights",
+    [{"IAU": 1.0}, {"GLD": 0.5, "IAU": 0.5}],
+)
+def test_broad_selloff_applies_gold_shock_to_bullion_funds(weights):
+    scenario = SCENARIOS["Broad selloff"]
+    for ticker in weights:
+        classify_and_register_ticker(ticker)
+
+    assert stress(pd.Series(weights), scenario) == pytest.approx(scenario["Gold"])
+
+
+def test_iau_and_slv_receive_their_own_metal_shocks():
+    classify_and_register_ticker("IAU")
+    weights = pd.Series({"IAU": 0.5, "SLV": 0.5})
+    shocks = {"Gold": 0.03, "Silver": -0.01}
+
+    assert stress(weights, shocks) == pytest.approx(0.01)
