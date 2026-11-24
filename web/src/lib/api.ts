@@ -6,7 +6,7 @@ import {
   UniverseData,
 } from "./types";
 
-const getApiBase = (): string => {
+export const getApiBase = (): string => {
   if (typeof window !== "undefined") {
     const saved = localStorage.getItem("auren_api_url");
     if (saved) return saved.replace(/\/+$/, "");
