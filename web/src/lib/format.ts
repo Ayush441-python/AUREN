@@ -55,6 +55,8 @@ export function formatShortDate(dateStr: string | undefined | null): string {
     return d.toLocaleDateString("en-US", {
       month: "short",
       year: "2-digit",
+      // Market sessions are calendar dates, independent of the viewer's time zone.
+      timeZone: /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? "UTC" : undefined,
     });
   } catch {
     return dateStr;
