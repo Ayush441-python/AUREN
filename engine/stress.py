@@ -34,5 +34,14 @@ def stress(w: pd.Series, shocks: dict) -> float:
 
 
 def worst_periods(pr: pd.Series) -> dict:
-    month = (1 + pr).rolling(21).apply(np.prod, raw=True) - 1
-    return {"worst_day": float(pr.min()), "worst_month": float(month.min())}
+    if pr.empty:
+        return {"worst_day": 0.0, "worst_month": 0.0}
+    # Bound gross returns at 0.0 floor so compound multiplication cannot produce false positive gains on liquidation drawdowns
+    gross = (1.0 + pr).clip(lower=0.0)
+    month = gross.rolling(21, min_periods=1).apply(np.prod, raw=True) - 1.0
+    worst_d = float(pr.min()) if not pr.empty else 0.0
+    worst_m = float(month.min()) if not month.empty else 0.0
+    return {
+        "worst_day": float(np.nan_to_num(worst_d, nan=0.0)),
+        "worst_month": float(np.nan_to_num(worst_m, nan=0.0)),
+    }
