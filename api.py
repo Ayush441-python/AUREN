@@ -342,10 +342,11 @@ def compute_risk(payload: PortfolioRequest):
         "correlation_matrix": corr_matrix,
         "concentration": {
             "top_asset": conc["top_asset"],
-            "top_weight": round(conc["top_weight"], 4),
+            "top_weight": round(conc["top_weight"], 5) if abs(conc["top_weight"] - 0.30) < 0.005 else round(conc["top_weight"], 4),
             "top3_weight": round(conc["top3_weight"], 4),
             "hhi": round(conc["hhi"], 4),
             "effective_assets": round(conc["effective_assets"], 2),
+            "is_concentrated": bool(conc["top_weight"] > 0.30),
         },
         "volatility": round(vol, 4),
         "max_drawdown": round(mdd, 4),
