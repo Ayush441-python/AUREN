@@ -107,3 +107,26 @@ def test_wallet_endpoint_shape(monkeypatch):
     assert data["portfolio"] == {"NVDA": 1.0}
     assert data["holdings"][0]["ticker"] == "NVDA"
     assert data["total_value"] == 200.0
+
+
+def test_risk_stress_preserves_precision_for_small_holding():
+    from unittest.mock import patch
+    import pandas as pd
+    import api as api_module
+
+    dates = pd.bdate_range("2026-01-02", periods=30)
+    prices = pd.DataFrame({"NVDA": range(100, 130), "COST": range(150, 180)}, index=dates)
+    with patch.object(api_module, "_load_aligned_prices", return_value=prices):
+        request = api_module.PortfolioRequest(weights={"NVDA": 0.1, "COST": 99.9})
+        res = api_module.compute_risk(request)
+        impact = res["stress"]["NVDA falls 15%"]
+        # Expected: -0.00015 (exact loss of $150 on $1,000,000 portfolio)
+        assert abs(impact - (-0.00015)) < 1e-7
+        assert round(impact * 1_000_000) == -150
+
+        # Also test 0.01% holding ($15 loss on $1,000,000)
+        req_small = api_module.PortfolioRequest(weights={"NVDA": 0.01, "COST": 99.99})
+        res_small = api_module.compute_risk(req_small)
+        impact_small = res_small["stress"]["NVDA falls 15%"]
+        assert abs(impact_small - (-0.000015)) < 1e-8
+        assert round(impact_small * 1_000_000) == -15

@@ -351,7 +351,7 @@ def compute_risk(payload: PortfolioRequest):
         "max_drawdown": round(mdd, 4),
         "sector_exposure": {k: round(v, 4) for k, v in exposure.to_dict().items()},
         "correlated_pairs": pairs,
-        "stress": {name: round(stress(w, s), 4) for name, s in SCENARIOS.items()},
+        "stress": {name: float(_finite(stress(w, s))) for name, s in SCENARIOS.items()},
         "worst_historical_periods": {
             k: round(_finite(v), 4) if isinstance(v, (int, float)) else v
             for k, v in historical_worst.items()

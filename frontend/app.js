@@ -52,7 +52,11 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const pct = (v, d = 1) => `${(v * 100).toFixed(d)}%`;
 const usd = (v) => `${v < 0 ? "−" : ""}$${Math.round(Math.abs(v)).toLocaleString()}`;
-const signed = (v, d = 1) => `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v * 100).toFixed(d)}%`;
+const signed = (v, d = 1) => {
+  const absPct = Math.abs(v * 100);
+  const decimals = (d === 1 && absPct > 0 && absPct < 0.1) ? (absPct < 0.01 ? 3 : 2) : d;
+  return `${v > 0 ? "+" : v < 0 ? "−" : ""}${absPct.toFixed(decimals)}%`;
+};
 const levelClass = (l) => ({ Low: "ok", Medium: "warn", High: "danger" }[l] || "muted");
 const badge = (l) => `<span class="badge ${levelClass(l)}">${esc(l)} risk</span>`;
 const base = () => {
