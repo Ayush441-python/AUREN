@@ -194,6 +194,22 @@ def token_balances(
     return out
 
 
+def get_native_eth_price() -> Tuple[float, Optional[str]]:
+    """Retrieve the latest dated market price for ETH-USD from data/prices.csv,
+    falling back to a $3,300 estimate if unavailable."""
+    prices_file = pathlib.Path(__file__).parent.parent / "data" / "prices.csv"
+    if prices_file.exists():
+        try:
+            df = pd.read_csv(prices_file, usecols=["Date", "ETH-USD"])
+            valid = df.dropna(subset=["ETH-USD"])
+            if not valid.empty:
+                last_row = valid.iloc[-1]
+                return float(last_row["ETH-USD"]), str(last_row["Date"])
+        except Exception as e:
+            logger.warning(f"Failed to read ETH price from prices.csv: {e}")
+    return 3300.0, None
+
+
 def wallet_holdings(
     wallet: str, supported: Set[str], rpc_url: Optional[str] = None
 ) -> Dict[str, Any]:
@@ -233,7 +249,7 @@ def wallet_holdings(
     # Check native ETH balance
     eth_balance = get_native_eth_balance(wallet, rpc_pool)
     if eth_balance >= 0.0005:  # meaningful dust threshold (~$1.50)
-        eth_price = 3300.0  # reference estimate
+        eth_price, eth_updated = get_native_eth_price()
         rows.append(
             {
                 "token": "ETH",
@@ -244,7 +260,7 @@ def wallet_holdings(
                 "price": eth_price,
                 "value": round(eth_balance * eth_price, 2),
                 "supported": "ETH-USD" in supported,
-                "nav_updated": None,
+                "nav_updated": eth_updated,
             }
         )
 
