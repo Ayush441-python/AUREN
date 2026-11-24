@@ -5,7 +5,7 @@ from engine.universe import GROUPS, SECTORS
 
 # Hypothetical shocks, not forecasts. Keys can be a ticker, an industry or a group.
 SCENARIOS = {
-    "Big Tech falls 20%": {"Big Tech": -0.20},
+    "Big Tech falls 20%": {"Big Tech": -0.20, "XLK": -0.20},
     "Chip selloff (semis fall 25%)": {"Semiconductors": -0.25,
                                       "Semiconductor Equipment": -0.25,
                                       "Memory Chips": -0.25},
@@ -16,6 +16,7 @@ SCENARIOS = {
         "Software & Cybersecurity": -0.15, "Internet & Communication": -0.10,
         "Consumer & Retail": -0.10, "Healthcare & Biotechnology": -0.08,
         "Industrial & Energy": -0.08, "Financials": -0.10,
+        "Broad Market ETFs": -0.10,
         "Crypto": -0.30, "Gold": 0.03,
     },
 }
