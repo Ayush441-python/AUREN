@@ -376,7 +376,48 @@ def compute_liquidity(payload: LiquidityRequest):
             detail="Failed to load price or volume data for liquidity calculations",
         )
 
-    adv = avg_daily_value(prices, volumes)
+    # Determine quote currency for each asset
+    currencies = {}
+    non_usd_currencies = set()
+    for t in tickers:
+        if t.endswith("-USD"):
+            currencies[t] = "USD"
+        else:
+            try:
+                import yfinance as yf
+                info = yf.Ticker(t).info or {}
+                curr = info.get("currency", "USD")
+            except Exception:
+                curr = "USD"
+            currencies[t] = curr or "USD"
+            if currencies[t].upper() != "USD":
+                non_usd_currencies.add(currencies[t].upper())
+
+    # Load FX series for non-USD currencies if needed
+    fx_rates = {}
+    for curr in non_usd_currencies:
+        fx_sym = f"{curr}=X"
+        if fx_sym in prices.columns and not prices[fx_sym].dropna().empty:
+            fx_rates[curr] = prices[fx_sym].dropna()
+            continue
+
+        fx_inv = f"{curr}USD=X"
+        if fx_inv in prices.columns and not prices[fx_inv].dropna().empty:
+            fx_rates[curr] = 1.0 / prices[fx_inv].dropna()
+            continue
+
+        try:
+            fx_df = load_prices([fx_sym], period=payload.period)
+            if not fx_df.empty and fx_sym in fx_df.columns and not fx_df[fx_sym].dropna().empty:
+                fx_rates[curr] = fx_df[fx_sym].dropna()
+            else:
+                fx_inv_df = load_prices([fx_inv], period=payload.period)
+                if not fx_inv_df.empty and fx_inv in fx_inv_df.columns and not fx_inv_df[fx_inv].dropna().empty:
+                    fx_rates[curr] = 1.0 / fx_inv_df[fx_inv].dropna()
+        except Exception:
+            pass
+
+    adv = avg_daily_value(prices, volumes, currencies=currencies, fx_rates=fx_rates)
     dollar_holdings = pd.Series({t: float(payload.portfolio_value * w[t]) for t in tickers}, dtype=float)
     exit_days = days_to_exit(dollar_holdings, adv, participation=payload.adv_participation)
 
