@@ -292,7 +292,7 @@ function renderWalletTable(rows) {
   $("wallet-body").innerHTML = rows.map((r) => `<tr>
     <td>${esc(r.token ?? "–")}</td><td><strong>${esc(r.ticker ?? "–")}</strong></td>
     <td class="num">${esc(r.tokens ?? "–")}</td><td class="num">${esc(r.shares ?? "–")}</td>
-    <td class="num">${r.price ? "$" + Number(r.price).toFixed(2) : "–"}</td>
+    <td class="num">${r.price ? "$" + Number(r.price).toFixed(2) + (r.nav_updated ? ` <span class="dim">(${esc(r.nav_updated)})</span>` : ` <span class="dim">(est.)</span>`) : "–"}</td>
     <td class="num">${r.value ? "$" + Number(r.value).toLocaleString() : "–"}</td>
     <td>${r.supported ? '<span class="chip ok">Yes</span>' : '<span class="chip bad">No</span>'}</td></tr>`).join("");
 }
