@@ -38,10 +38,13 @@ export function formatDate(dateStr: string | undefined | null): string {
   if (!dateStr) return "—";
   try {
     const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const hasTimeOrTz = typeof dateStr === "string" && (dateStr.includes("T") || dateStr.includes(":"));
     return d.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
+      timeZone: hasTimeOrTz ? undefined : "UTC",
     });
   } catch {
     return dateStr;
@@ -52,9 +55,12 @@ export function formatShortDate(dateStr: string | undefined | null): string {
   if (!dateStr) return "—";
   try {
     const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const hasTimeOrTz = typeof dateStr === "string" && (dateStr.includes("T") || dateStr.includes(":"));
     return d.toLocaleDateString("en-US", {
       month: "short",
       year: "2-digit",
+      timeZone: hasTimeOrTz ? undefined : "UTC",
     });
   } catch {
     return dateStr;
