@@ -267,14 +267,18 @@ function loadPreset(name) {
 }
 
 // ------------------------------------------------------------------ Wallet import
+let latestWalletImport = 0;
+
 function walletMsg(type, text) { const el = $("wallet-msg"); el.hidden = false; el.className = `note ${type}`; el.textContent = text; }
 
 async function importWallet() {
+  const importId = ++latestWalletImport;
   const address = $("wallet-address").value.trim();
   if (!/^0x[a-fA-F0-9]{40}$/.test(address)) return walletMsg("error", "Enter a Base address: 0x followed by 40 hex characters.");
   walletMsg("warning", "Scanning tokenized balances on Base…");
   try {
     const d = await api("/wallet", { method: "POST", body: { address } });
+    if (importId !== latestWalletImport) return;
     const entries = Object.entries(d.portfolio || {});
     if (!entries.length) return walletMsg("warning", d.message || "No supported tokenized stocks or crypto found in this wallet.");
     $("assets-inputs").innerHTML = "";
@@ -284,7 +288,9 @@ async function importWallet() {
     renderWalletTable(d.holdings || []);
     walletMsg("success", d.message || `Loaded ${entries.length} asset${entries.length > 1 ? "s" : ""}.`);
     runAnalysis();
-  } catch (e) { walletMsg("error", `Couldn't read the wallet: ${e.message}`); }
+  } catch (e) {
+    if (importId === latestWalletImport) walletMsg("error", `Couldn't read the wallet: ${e.message}`);
+  }
 }
 
 function renderWalletTable(rows) {
