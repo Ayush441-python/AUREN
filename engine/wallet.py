@@ -90,7 +90,8 @@ def list_tokenized_stocks(timeout: int = 5) -> List[Dict[str, Any]]:
                     break
             else:
                 break
-        if tokens:
+        # A continuation token means a later page failed or the page cap was reached.
+        if tokens and not page_token:
             try:
                 TOKEN_CACHE_FILE.write_text(json.dumps(tokens, indent=2), encoding="utf-8")
             except Exception:

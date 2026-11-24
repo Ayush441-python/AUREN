@@ -99,3 +99,30 @@ def test_wallet_with_native_eth_and_cbbtc(monkeypatch):
     assert "ETH-USD" in data["portfolio"]
     assert "BTC-USD" in data["portfolio"]
     assert round(sum(data["portfolio"].values()), 2) == 1.0
+
+
+@pytest.mark.parametrize("stop_reason", ["http_error", "page_cap"])
+def test_incomplete_token_catalog_refresh_preserves_fallback(monkeypatch, tmp_path, stop_reason):
+    from unittest.mock import Mock
+
+    from engine import wallet
+
+    first = {"symbol": "NVDAc"}
+    second = {"symbol": "AAPLc"}
+    cache = tmp_path / "tokens.json"
+    monkeypatch.setattr(wallet, "TOKEN_CACHE_FILE", cache)
+
+    first_page = Mock(status_code=200, json=lambda: {
+        "tokens": [first], "next_page_token": "page-two",
+    })
+    last_page = Mock(status_code=200, json=lambda: {"tokens": [second]})
+    unavailable = Mock(status_code=503)
+    incomplete = [first_page, unavailable] if stop_reason == "http_error" else [first_page] * 5
+    get = Mock(side_effect=[first_page, last_page, *incomplete, unavailable])
+    monkeypatch.setattr(wallet.requests, "get", get)
+
+    assert wallet.list_tokenized_stocks() == [first, second]
+    complete_cache = cache.read_bytes()
+    assert wallet.list_tokenized_stocks() == [first, second]
+    assert cache.read_bytes() == complete_cache
+    assert wallet.list_tokenized_stocks() == [first, second]
