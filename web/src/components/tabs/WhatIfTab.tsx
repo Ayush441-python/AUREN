@@ -45,8 +45,10 @@ export function WhatIfTab({ currentAnalysis, currentHoldings }: Props) {
       });
       const res = await calculateRisk(weightsObj);
       setAltAnalysis(res);
-    } catch (err: any) {
-      setErrorMsg(err.message || "Failed to compare what-if portfolio.");
+    } catch (err: unknown) {
+      setErrorMsg(
+        (err instanceof Error ? err.message : null) || "Failed to compare what-if portfolio."
+      );
     } finally {
       setIsComparing(false);
     }

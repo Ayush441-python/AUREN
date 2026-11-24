@@ -1,197 +1,164 @@
 "use client";
 
-import React, { useState } from "react";
-import { RiskAnalysis } from "@/lib/types";
+import { Grid2X2, Link2, ShieldCheck } from "lucide-react";
 import { formatNumber } from "@/lib/format";
-import { Grid3X3, AlertTriangle, Info, CheckCircle2 } from "lucide-react";
+import { cn } from "@/lib/cn";
+import type { RiskAnalysis } from "@/lib/types";
+import { Metric, Panel, PanelHeader } from "@/components/ui/Panel";
+import { Heatmap } from "@/components/dashboard/charts/Heatmap";
 
 interface CorrelationViewProps {
   data: RiskAnalysis;
 }
 
 export function CorrelationView({ data }: CorrelationViewProps) {
-  const matrix = data.correlation_matrix;
-  const cols = matrix.columns;
-  const [hoveredCell, setHoveredCell] = useState<{
-    assetA: string;
-    assetB: string;
-    value: number;
-  } | null>(null);
-
-  const getCellColor = (val: number, isDiagonal: boolean) => {
-    if (isDiagonal) return "bg-[#1C1C21] text-[#6B6E76] font-mono";
-    if (val >= 0.75) return "bg-[#E07A5F]/25 text-[#E07A5F] font-mono font-semibold";
-    if (val >= 0.50) return "bg-[#E3B341]/20 text-[#E3B341] font-mono font-medium";
-    if (val <= 0.20) return "bg-[#7FB3A6]/15 text-[#7FB3A6] font-mono";
-    return "bg-[#151518] text-[#A1A4AB] font-mono";
-  };
+  const pairs = data.correlated_pairs;
+  const scored = pairs.length >= 2;
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
-      {/* Header */}
-      <div className="border-b border-[#26262C] pb-5">
-        <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-[#F5F6F7]">
-          Correlation Matrix & Co-Movement
+    <div className="space-y-7">
+      <header className="border-b border-line pb-6">
+        <p className="auren-eyebrow">Portfolio intelligence / Co-movement</p>
+        <h1 className="mt-3 font-display text-4xl leading-none text-primary sm:text-5xl">
+          Correlation matrix
         </h1>
-        <p className="mt-1 text-xs sm:text-sm text-[#A1A4AB]">
-          Pairwise correlation coefficients calculated from aligned daily log-returns over 252 sessions.
+        <p className="mt-3 max-w-3xl text-sm leading-relaxed text-muted">
+          Pairwise Pearson coefficients computed from aligned daily simple returns, not log
+          returns. Coefficients describe historical co-movement; they do not imply causation.
         </p>
-      </div>
+      </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column: Heatmap Grid */}
-        <div className="lg:col-span-8 panel-card p-6 overflow-x-auto">
-          <div className="flex items-center justify-between mb-5">
-            <h3 className="text-sm font-semibold text-[#F5F6F7] flex items-center gap-2">
-              <Grid3X3 className="h-4 w-4 text-[#E3B341]" />
-              <span>Pairwise Matrix</span>
-            </h3>
-
-            {hoveredCell ? (
-              <span className="font-mono text-xs text-[#E3B341] bg-[#1C1C21] px-2.5 py-1 rounded border border-[#26262C]">
-                {hoveredCell.assetA} &times; {hoveredCell.assetB}: {formatNumber(hoveredCell.value, 2)}
-              </span>
-            ) : (
-              <span className="text-xs text-[#6B6E76]">Hover over any cell to inspect</span>
-            )}
-          </div>
-
-          {/* Matrix Table */}
-          <div className="inline-block min-w-full">
-            <div
-              className="grid gap-1.5"
-              style={{
-                gridTemplateColumns: `auto repeat(${cols.length}, minmax(44px, 1fr))`,
-              }}
-            >
-              {/* Header Corner */}
-              <div className="h-9 w-16" />
-
-              {/* Column Headers */}
-              {cols.map((col) => (
-                <div
-                  key={col}
-                  className="flex h-9 items-center justify-center font-mono text-[11px] font-semibold text-[#A1A4AB] px-1 truncate"
-                  title={col}
-                >
-                  {col}
-                </div>
-              ))}
-
-              {/* Matrix Rows */}
-              {matrix.data.map((row, rIdx) => {
-                const rowTicker = cols[rIdx];
-                return (
-                  <React.Fragment key={rowTicker}>
-                    {/* Row Header */}
-                    <div className="flex h-11 items-center font-mono text-[11px] font-semibold text-[#A1A4AB] pr-3 truncate">
-                      {rowTicker}
-                    </div>
-
-                    {/* Cells */}
-                    {row.map((val, cIdx) => {
-                      const colTicker = cols[cIdx];
-                      const isDiagonal = rIdx === cIdx;
-
-                      return (
-                        <div
-                          key={`${rowTicker}-${colTicker}`}
-                          onMouseEnter={() =>
-                            setHoveredCell({
-                              assetA: rowTicker,
-                              assetB: colTicker,
-                              value: val,
-                            })
-                          }
-                          onMouseLeave={() => setHoveredCell(null)}
-                          className={`flex h-11 items-center justify-center rounded text-xs transition-colors cursor-pointer border border-[#26262C]/40 ${getCellColor(
-                            val,
-                            isDiagonal
-                          )} hover:border-[#E3B341] hover:scale-105`}
-                        >
-                          {formatNumber(val, 2)}
-                        </div>
-                      );
-                    })}
-                  </React.Fragment>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Legend */}
-          <div className="mt-6 pt-4 border-t border-[#26262C] flex flex-wrap items-center gap-4 text-xs text-[#6B6E76]">
-            <div className="flex items-center gap-1.5">
-              <span className="h-3 w-3 rounded bg-[#7FB3A6]/20 border border-[#7FB3A6]/40" />
-              <span>Low Correlation (&le; 0.20)</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="h-3 w-3 rounded bg-[#1C1C21] border border-[#26262C]" />
-              <span>Moderate (0.21 &ndash; 0.49)</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="h-3 w-3 rounded bg-[#E3B341]/20 border border-[#E3B341]/40" />
-              <span>Elevated (0.50 &ndash; 0.74)</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="h-3 w-3 rounded bg-[#E07A5F]/25 border border-[#E07A5F]/40" />
-              <span>Severe Co-Movement (&ge; 0.75)</span>
-            </div>
-          </div>
+      <section aria-label="Correlation summary" className="grid grid-cols-1 gap-px border border-line bg-line sm:grid-cols-3">
+        <div className="bg-secondary px-5 py-5">
+          <Metric
+            label="Assets in matrix"
+            value={data.correlation_matrix.columns.length}
+            detail="Aligned price series with available return observations"
+          />
         </div>
+        <div className="bg-secondary px-5 py-5">
+          <Metric
+            label="Pairs above 0.70"
+            value={pairs.length}
+            detail="Off-diagonal pairs with Pearson r greater than 0.70"
+            tone={pairs.length ? "negative" : "positive"}
+          />
+        </div>
+        <div className="bg-secondary px-5 py-5">
+          <Metric
+            label="Scoring impact"
+            value={scored ? "+15 pts" : "+0 pts"}
+            detail="Two or more pairs above 0.70 add 15 points"
+            tone={scored ? "negative" : "positive"}
+          />
+        </div>
+      </section>
 
-        {/* Right Column: High Co-Movement Pairs */}
-        <div className="lg:col-span-4 panel-card p-6 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-[#F5F6F7]">
-                Correlated Asset Pairs
-              </h3>
-              <span className="font-mono text-xs text-[#6B6E76]">
-                {data.correlated_pairs.length} Elevated
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
+        <Panel className="xl:col-span-8">
+          <PanelHeader
+            eyebrow="Pairwise matrix"
+            title="Pearson r"
+            action={
+              <Grid2X2 aria-hidden="true" className="h-4 w-4 text-gold" />
+            }
+          />
+          <div className="p-5 sm:p-6">
+            <Heatmap matrix={data.correlation_matrix} />
+          </div>
+        </Panel>
+
+        <Panel className="xl:col-span-4">
+          <PanelHeader
+            eyebrow="Threshold watch"
+            title="High co-movement pairs"
+            action={
+              <span className="font-mono text-[0.6rem] uppercase tracking-[0.16em] text-faint">
+                {pairs.length} flagged
               </span>
-            </div>
-
-            {data.correlated_pairs.length > 0 ? (
-              <div className="space-y-3">
-                {data.correlated_pairs.map(([assetA, assetB, coef], idx) => (
-                  <div
-                    key={idx}
-                    className="rounded-lg border border-[#26262C] bg-[#1C1C21] p-3 text-xs"
+            }
+          />
+          <div className="p-5 sm:p-6">
+            {pairs.length ? (
+              <ol className="space-y-3">
+                {pairs.map(([assetA, assetB, value], index) => (
+                  <li
+                    key={`${assetA}-${assetB}-${index}`}
+                    className="border border-negative/25 bg-negative/[0.04] px-4 py-3"
                   >
-                    <div className="flex items-center justify-between font-mono">
-                      <span className="font-semibold text-[#F5F6F7]">
-                        {assetA} &times; {assetB}
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="min-w-0 truncate font-mono text-xs uppercase tracking-[0.12em] text-primary">
+                        {assetA} <span className="text-faint">×</span> {assetB}
                       </span>
-                      <span
-                        className={`font-semibold ${
-                          coef >= 0.75 ? "text-[#E07A5F]" : "text-[#E3B341]"
-                        }`}
-                      >
-                        +{formatNumber(coef, 2)}
+                      <span className="font-mono text-sm text-negative tabular">
+                        {formatNumber(value, 2)}
                       </span>
                     </div>
-                    <p className="mt-1 text-[11px] text-[#A1A4AB] leading-relaxed">
-                      {coef >= 0.75
-                        ? "Strong synchronized movement. These assets fail to cushion portfolio drawdowns when moving downward together."
-                        : "Moderate joint exposure. Offers partial diversification benefits during volatility."}
+                    <p className="mt-2 text-[0.68rem] leading-relaxed text-muted">
+                      Above the 0.70 threshold. These assets have moved together closely over the
+                      supplied return window.
                     </p>
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ol>
             ) : (
-              <div className="rounded-lg border border-[#26262C] bg-[#1C1C21] p-4 text-xs text-[#7FB3A6] flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 shrink-0" />
-                <span>No pairs exceed the 0.60 high correlation threshold. Portfolio exhibits strong asset independence.</span>
+              <div className="border border-positive/25 bg-positive/[0.04] px-4 py-4">
+                <p className="flex items-center gap-2 text-xs text-positive">
+                  <ShieldCheck aria-hidden="true" className="h-4 w-4" />
+                  No pair exceeds 0.70
+                </p>
+                <p className="mt-2 text-xs leading-relaxed text-muted">
+                  The correlation penalty is not triggered for this weight vector.
+                </p>
               </div>
             )}
-          </div>
 
-          <div className="mt-6 pt-4 border-t border-[#26262C] text-xs text-[#6B6E76]">
-            High pairwise correlation reduces effective diversification, increasing aggregate tail risk.
+            <div className="mt-5 border-t border-line pt-4">
+              <p className="auren-eyebrow">Interpretation</p>
+              <p className="mt-2 text-xs leading-relaxed text-muted">
+                High pairwise correlation reduces the diversification benefit of holding multiple
+                assets because positions are more likely to decline at the same time.
+              </p>
+            </div>
+          </div>
+        </Panel>
+      </div>
+
+      <Panel>
+        <PanelHeader
+          eyebrow="Methodology"
+          title="How this matrix is built"
+          action={<Link2 aria-hidden="true" className="h-4 w-4 text-gold" />}
+        />
+        <div className="grid grid-cols-1 gap-px bg-line md:grid-cols-3">
+          <div className="bg-secondary px-5 py-5">
+            <p className="font-mono text-[0.62rem] uppercase tracking-[0.16em] text-champagne">
+              01 · Align
+            </p>
+            <p className="mt-2 text-xs leading-relaxed text-muted">
+              Price series are aligned by date and limited to assets present in the current weight
+              vector.
+            </p>
+          </div>
+          <div className="bg-secondary px-5 py-5">
+            <p className="font-mono text-[0.62rem] uppercase tracking-[0.16em] text-champagne">
+              02 · Transform
+            </p>
+            <p className="mt-2 text-xs leading-relaxed text-muted">
+              Simple daily returns are calculated as P<sub>t</sub> / P<sub>t−1</sub> − 1. Diagonal
+              values equal 1.
+            </p>
+          </div>
+          <div className="bg-secondary px-5 py-5">
+            <p className="font-mono text-[0.62rem] uppercase tracking-[0.16em] text-champagne">
+              03 · Score
+            </p>
+            <p className={cn("mt-2 text-xs leading-relaxed", scored ? "text-negative" : "text-muted")}>
+              Two or more off-diagonal pairs with r &gt; 0.70 add 15 penalty points.
+            </p>
           </div>
         </div>
-      </div>
+      </Panel>
     </div>
   );
 }

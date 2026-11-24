@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
-import { RiskAnalysis } from "@/lib/types";
-import { formatPercent, formatNumber } from "@/lib/format";
-import { X, Calculator, ShieldCheck, Check, Copy } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Calculator, Check, Copy, ShieldCheck, X } from "lucide-react";
+import { formatNumber, formatPercent, formatSignedPercent } from "@/lib/format";
+import type { RiskAnalysis } from "@/lib/types";
+import { Button } from "@/components/ui/Button";
+import { CodeBlock } from "@/components/ui/CodeBlock";
 
 interface NumbersUsedDrawerProps {
   isOpen: boolean;
@@ -12,177 +14,233 @@ interface NumbersUsedDrawerProps {
 }
 
 export function NumbersUsedDrawer({ isOpen, onClose, data }: NumbersUsedDrawerProps) {
+  const panelRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const panel = panelRef.current;
+    panel?.focus();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+      if (event.key !== "Tab" || !panel) return;
+      const focusable = panel.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = "";
+      previous?.focus();
+    };
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
-  const largestSector = Object.entries(data.sector_exposure).sort((a, b) => b[1] - a[1])[0];
-  const observationCount = data.dates.length;
-  const rawJson = JSON.stringify(
-    {
-      deterministic_score: data.score,
-      risk_level: data.level,
-      price_observations: observationCount,
-      scoring_rule_hits: data.hits,
-      concentration_metrics: data.concentration,
-      annualized_volatility: data.volatility,
-      max_historical_drawdown: data.max_drawdown,
-      correlated_pairs: data.correlated_pairs,
-      sector_exposures: data.sector_exposure,
-      historical_worst: data.worst_historical_periods,
-    },
-    null,
-    2
-  );
+  const maxSector = Object.entries(data.sector_exposure).sort((a, b) => b[1] - a[1])[0];
+  const payload = {
+    score: data.score,
+    level: data.level,
+    normalized_weights: data.normalized_weights,
+    reasons: data.reasons,
+    hits: data.hits,
+    observed_sessions: data.dates.length,
+    concentration: data.concentration,
+    annualized_volatility: data.volatility,
+    max_historical_drawdown: data.max_drawdown,
+    sector_exposure: data.sector_exposure,
+    correlation_matrix: data.correlation_matrix,
+    correlated_pairs: data.correlated_pairs,
+    stress_scenarios: data.stress,
+    worst_historical_periods: data.worst_historical_periods,
+  };
+  const rawJson = JSON.stringify(payload, null, 2);
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(rawJson);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(rawJson);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setCopied(false);
+    }
   };
 
+  const rows = [
+    {
+      label: "Largest holding",
+      value: data.concentration.top_asset,
+      measured: formatPercent(data.concentration.top_weight),
+      condition: "> 30%",
+    },
+    {
+      label: "Effective assets",
+      value: formatNumber(data.concentration.effective_assets, 2),
+      measured: "1 / HHI",
+      condition: "< 4",
+    },
+    {
+      label: "Annualized volatility",
+      value: formatPercent(data.volatility),
+      measured: "σdaily × √252",
+      condition: "> 30%",
+    },
+    {
+      label: "Maximum drawdown",
+      value: formatSignedPercent(data.max_drawdown),
+      measured: "min(Pₜ / peak − 1)",
+      condition: "< −30%",
+    },
+    {
+      label: "Pairs above threshold",
+      value: String(data.correlated_pairs.length),
+      measured: "Pearson r, simple returns",
+      condition: "≥ 2 pairs, r > 0.70",
+    },
+    {
+      label: "Largest sector",
+      value: maxSector?.[0] ?? "—",
+      measured: maxSector ? formatPercent(maxSector[1]) : "—",
+      condition: "> 50%",
+    },
+  ];
+
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="flex h-full w-full max-w-xl flex-col border-l border-[#26262C] bg-[#151518] p-6 shadow-2xl overflow-y-auto">
-        {/* Drawer Header */}
-        <div className="flex items-center justify-between border-b border-[#26262C] pb-4">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-[#E3B341]/10 text-[#E3B341] border border-[#E3B341]/20">
-              <Calculator className="h-4 w-4" />
-            </div>
+    <div className="fixed inset-0 z-[100] flex justify-end">
+      <button
+        type="button"
+        aria-label="Close audit drawer"
+        onClick={onClose}
+        className="absolute inset-0 cursor-default bg-black/80 backdrop-blur-sm"
+      />
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="audit-drawer-title"
+        tabIndex={-1}
+        className="auren-panel relative flex h-full w-full max-w-2xl flex-col overflow-hidden outline-none"
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-line px-6 py-5">
+          <div className="flex items-start gap-3">
+            <span className="border border-gold/30 bg-gold/10 p-2 text-champagne">
+              <Calculator aria-hidden="true" className="h-4 w-4" />
+            </span>
             <div>
-              <h2 className="text-sm font-semibold text-[#F5F6F7]">Audit & Mathematical Verification</h2>
-              <p className="text-xs text-[#A1A4AB]">Raw numbers, formulas, and parameters used in scoring</p>
+              <p className="auren-eyebrow">Audit trail</p>
+              <h2 id="audit-drawer-title" className="mt-2 font-display text-3xl leading-none text-primary">
+                Numbers used
+              </h2>
+              <p className="mt-2 text-xs leading-relaxed text-muted">
+                Measured values, rule thresholds, and the penalties applied by the scoring engine.
+              </p>
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="rounded-md p-1.5 text-[#A1A4AB] hover:bg-[#1C1C21] hover:text-[#F5F6F7]"
+            aria-label="Close audit drawer"
+            className="border border-line p-2 text-muted transition-colors hover:border-gold/50 hover:text-highlight"
           >
-            <X className="h-4 w-4" />
+            <X aria-hidden="true" className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Audit Details */}
-        <div className="mt-6 space-y-6">
-          {/* Integrity Guarantee */}
-          <div className="rounded-lg border border-[#26262C] bg-[#1C1C21] p-3.5">
-            <div className="flex items-center gap-2 text-xs font-semibold text-[#7FB3A6]">
-              <ShieldCheck className="h-4 w-4" />
-              <span>Risk Score Inputs</span>
-            </div>
-            <p className="mt-1 text-xs text-[#A1A4AB] leading-relaxed">
-              The analysis contains {observationCount} aligned price observations.
+        <div className="auren-scrollbar-none min-h-0 flex-1 space-y-6 overflow-y-auto px-6 py-5">
+          <div className="border border-positive/25 bg-positive/[0.04] px-4 py-4">
+            <p className="flex items-center gap-2 font-mono text-[0.62rem] uppercase tracking-[0.16em] text-positive">
+              <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5" />
+              Scoring summary
+            </p>
+            <p className="mt-2 text-xs leading-relaxed text-muted">
+              The analysis reports {data.score} points
+              in the {data.level} tier. Tiers are 0–34 Low, 35–64 Medium, and 65–100 High.
             </p>
           </div>
 
-          {/* Metric Breakdown Table */}
           <div>
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-[#6B6E76] mb-2.5">
-              Input Vectors & Computed Metrics
-            </h3>
-            <div className="rounded-lg border border-[#26262C] overflow-hidden">
-              <table className="w-full text-left text-xs">
-                <thead className="border-b border-[#26262C] bg-[#1C1C21] text-[#A1A4AB]">
+            <p className="auren-eyebrow mb-3">Rule reference</p>
+            <div className="auren-scrollbar-none overflow-x-auto border border-line">
+              <table className="w-full min-w-[620px] text-left text-xs">
+                <caption className="sr-only">Risk scoring rules and measured values</caption>
+                <thead className="border-b border-line bg-secondary/70 text-faint">
                   <tr>
-                    <th className="px-3.5 py-2 font-medium">Metric</th>
-                    <th className="px-3.5 py-2 font-medium text-right">Computed Value</th>
-                    <th className="px-3.5 py-2 font-medium">Calculation</th>
+                    <th scope="col" className="px-3 py-3 font-mono text-[0.58rem] uppercase tracking-[0.14em]">Rule</th>
+                    <th scope="col" className="px-3 py-3 font-mono text-[0.58rem] uppercase tracking-[0.14em]">Measured</th>
+                    <th scope="col" className="px-3 py-3 font-mono text-[0.58rem] uppercase tracking-[0.14em]">Condition</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#26262C] text-[#F5F6F7]">
-                  <tr>
-                    <td className="px-3.5 py-2 font-medium">Single Asset Conc.</td>
-                    <td className="px-3.5 py-2 text-right font-mono text-[#E3B341]">
-                      {formatPercent(data.concentration.top_weight)}
-                    </td>
-                    <td className="px-3.5 py-2 text-[#A1A4AB]">Largest holding weight</td>
-                  </tr>
-                  <tr>
-                    <td className="px-3.5 py-2 font-medium">Top 3 Combined</td>
-                    <td className="px-3.5 py-2 text-right font-mono">
-                      {formatPercent(data.concentration.top3_weight)}
-                    </td>
-                    <td className="px-3.5 py-2 text-[#A1A4AB]">Sum of the three largest holding weights</td>
-                  </tr>
-                  <tr>
-                    <td className="px-3.5 py-2 font-medium">HHI Index</td>
-                    <td className="px-3.5 py-2 text-right font-mono">
-                      {formatNumber(data.concentration.hhi, 4)}
-                    </td>
-                    <td className="px-3.5 py-2 text-[#A1A4AB]">&Sigma; (w_i)^2 (0 to 1)</td>
-                  </tr>
-                  <tr>
-                    <td className="px-3.5 py-2 font-medium">Effective Assets</td>
-                    <td className="px-3.5 py-2 text-right font-mono text-[#7FB3A6]">
-                      {formatNumber(data.concentration.effective_assets, 1)}
-                    </td>
-                    <td className="px-3.5 py-2 text-[#A1A4AB]">1 / HHI</td>
-                  </tr>
-                  <tr>
-                    <td className="px-3.5 py-2 font-medium">Annualized Volatility</td>
-                    <td className="px-3.5 py-2 text-right font-mono">
-                      {formatPercent(data.volatility)}
-                    </td>
-                    <td className="px-3.5 py-2 text-[#A1A4AB]">&radic;252 &times; &sigma;_daily</td>
-                  </tr>
-                  <tr>
-                    <td className="px-3.5 py-2 font-medium">Max Drawdown</td>
-                    <td className="px-3.5 py-2 text-right font-mono text-[#E07A5F]">
-                      {formatPercent(data.max_drawdown)}
-                    </td>
-                    <td className="px-3.5 py-2 text-[#A1A4AB]">Min (P_t / Peak_t - 1)</td>
-                  </tr>
-                  <tr>
-                    <td className="px-3.5 py-2 font-medium">Max Sector Exposure</td>
-                    <td className="px-3.5 py-2 text-right font-mono">
-                      {largestSector
-                        ? `${largestSector[0]}: ${formatPercent(largestSector[1])}`
-                        : "—"}
-                    </td>
-                    <td className="px-3.5 py-2 text-[#A1A4AB]">Largest combined group weight</td>
-                  </tr>
+                <tbody className="divide-y divide-line/60">
+                  {rows.map((row) => (
+                    <tr key={row.label}>
+                      <th scope="row" className="px-3 py-3 font-normal text-primary">
+                        {row.label}
+                      </th>
+                      <td className="px-3 py-3 font-mono text-muted">
+                        {row.value}
+                        <span className="ml-2 text-faint">{row.measured}</span>
+                      </td>
+                      <td className="px-3 py-3 font-mono text-muted">{row.condition}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
           </div>
 
           <div>
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-[#6B6E76] mb-2.5">
-              Scoring Rules Triggered
-            </h3>
-            {data.hits.length > 0 ? (
-              <ul className="space-y-2 text-xs text-[#F5F6F7]">
-                {data.hits.map(([points, reason]) => (
-                  <li key={reason} className="flex items-start gap-2">
-                    <span className="font-mono text-[#E3B341]">+{points}</span>
-                    <span>{reason}</span>
+            <p className="auren-eyebrow mb-3">Applied penalties</p>
+            <p className="mb-3 text-xs text-muted">
+              The scoring engine applies rules before the measured values are rounded for display.
+            </p>
+            {data.hits.length ? (
+              <ol className="space-y-2">
+                {data.hits.map(([points, reason], index) => (
+                  <li key={`${reason}-${index}`} className="flex items-start justify-between gap-3 border border-line bg-obsidian/40 px-3 py-2.5 text-xs">
+                    <span className="text-primary">{reason}</span>
+                    <span className="shrink-0 font-mono text-champagne tabular">+{points}</span>
                   </li>
                 ))}
-              </ul>
+              </ol>
             ) : (
-              <p className="text-xs text-[#A1A4AB]">No scoring rules triggered.</p>
+              <p className="border border-line bg-obsidian/40 px-3 py-3 text-xs text-muted">
+                No rule conditions were triggered.
+              </p>
             )}
           </div>
 
-          {/* Raw JSON Payload */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-[#6B6E76]">
-                Audit Data (JSON)
-              </span>
-              <button
-                onClick={handleCopy}
-                className="flex items-center gap-1.5 rounded bg-[#1C1C21] px-2 py-1 text-xs text-[#A1A4AB] hover:text-[#F5F6F7] border border-[#26262C]"
-              >
-                {copied ? <Check className="h-3 w-3 text-[#7FB3A6]" /> : <Copy className="h-3 w-3" />}
-                <span>{copied ? "Copied" : "Copy Raw"}</span>
-              </button>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <p className="auren-eyebrow">Exact analysis payload</p>
+              <Button variant="terminal" onClick={copy} className="px-3 py-1.5">
+                {copied ? <Check aria-hidden="true" className="h-3 w-3" /> : <Copy aria-hidden="true" className="h-3 w-3" />}
+                {copied ? "Copied" : "Copy JSON"}
+              </Button>
             </div>
-            <pre className="max-h-60 overflow-y-auto rounded-lg border border-[#26262C] bg-[#0E0E10] p-3 font-mono text-[11px] text-[#A1A4AB] leading-relaxed">
-              {rawJson}
-            </pre>
+            <span aria-live="polite" className="sr-only">
+              {copied ? "Audit payload copied" : ""}
+            </span>
+            <CodeBlock code={rawJson} title="analysis.json" />
           </div>
+
+          <p className="border-l-2 border-gold/50 pl-3 text-xs leading-relaxed text-faint">
+            {data.disclaimer}
+          </p>
         </div>
       </div>
     </div>
