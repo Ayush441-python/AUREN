@@ -11,7 +11,32 @@ export interface WalletState {
   hasProvider: boolean;
 }
 
-const BASE_CHAIN_ID = "0x2105"; // 8453 in hex
+interface EthereumProvider {
+  request<T = unknown>(args: { method: string; params?: unknown }): Promise<T>;
+  on?(event: "accountsChanged", listener: (accounts: string[]) => void): void;
+  on?(event: "chainChanged", listener: (chainId: string) => void): void;
+  removeListener?(event: "accountsChanged", listener: (accounts: string[]) => void): void;
+  removeListener?(event: "chainChanged", listener: (chainId: string) => void): void;
+}
+
+declare global {
+  interface Window {
+    ethereum?: EthereumProvider;
+  }
+}
+
+const BASE_CHAIN_ID = "0x2105";
+
+const getProvider = (): EthereumProvider | undefined =>
+  typeof window === "undefined" ? undefined : window.ethereum;
+
+function providerErrorCode(error: unknown): number | undefined {
+  if (typeof error === "object" && error !== null && "code" in error) {
+    const code = (error as { code?: unknown }).code;
+    return typeof code === "number" ? code : undefined;
+  }
+  return undefined;
+}
 
 export function useWallet() {
   const [address, setAddress] = useState<string | null>(null);
@@ -20,58 +45,61 @@ export function useWallet() {
   const [error, setError] = useState<string | null>(null);
   const [hasProvider, setHasProvider] = useState(false);
 
-  // Check for window.ethereum on mount
   useEffect(() => {
-    if (typeof window !== "undefined" && (window as any).ethereum) {
-      setHasProvider(true);
+    const eth = getProvider();
+    if (!eth) return;
 
-      const eth = (window as any).ethereum;
+    let active = true;
+    queueMicrotask(() => {
+      if (active) setHasProvider(true);
+    });
 
-      // Check if already authorized
-      eth
-        .request({ method: "eth_accounts" })
-        .then((accounts: string[]) => {
-          if (accounts && accounts.length > 0) {
-            setAddress(accounts[0]);
-          }
-        })
-        .catch(() => {});
-
-      eth
-        .request({ method: "eth_chainId" })
-        .then((id: string) => {
-          setChainId(id);
-        })
-        .catch(() => {});
-
-      // Event listeners
-      const handleAccountsChanged = (accounts: string[]) => {
+    eth
+      .request<string[]>({ method: "eth_accounts" })
+      .then((accounts) => {
+        if (!active) return;
         if (accounts && accounts.length > 0) {
           setAddress(accounts[0]);
-        } else {
-          setAddress(null);
         }
-      };
+      })
+      .catch(() => {});
 
-      const handleChainChanged = (id: string) => {
-        setChainId(id);
-      };
+    eth
+      .request<string>({ method: "eth_chainId" })
+      .then((id) => {
+        if (active) setChainId(id);
+      })
+      .catch(() => {});
 
-      eth.on("accountsChanged", handleAccountsChanged);
-      eth.on("chainChanged", handleChainChanged);
+    const handleAccountsChanged = (accounts: string[]) => {
+      if (!active) return;
+      if (accounts && accounts.length > 0) {
+        setAddress(accounts[0]);
+      } else {
+        setAddress(null);
+      }
+    };
 
-      return () => {
-        if (eth.removeListener) {
-          eth.removeListener("accountsChanged", handleAccountsChanged);
-          eth.removeListener("chainChanged", handleChainChanged);
-        }
-      };
-    }
+    const handleChainChanged = (id: string) => {
+      if (active) setChainId(id);
+    };
+
+    eth.on?.("accountsChanged", handleAccountsChanged);
+    eth.on?.("chainChanged", handleChainChanged);
+
+    return () => {
+      active = false;
+      eth.removeListener?.("accountsChanged", handleAccountsChanged);
+      eth.removeListener?.("chainChanged", handleChainChanged);
+    };
   }, []);
 
   const connect = useCallback(async (): Promise<string | null> => {
-    if (typeof window === "undefined" || !(window as any).ethereum) {
-      setError("No Web3 wallet detected. Please install MetaMask or Coinbase Wallet, or paste your address manually.");
+    const eth = getProvider();
+    if (!eth) {
+      setError(
+        "No Web3 wallet detected. Please install MetaMask or Coinbase Wallet, or paste your address manually."
+      );
       return null;
     }
 
@@ -79,8 +107,7 @@ export function useWallet() {
     setError(null);
 
     try {
-      const eth = (window as any).ethereum;
-      const accounts = await eth.request({
+      const accounts = await eth.request<string[]>({
         method: "eth_requestAccounts",
       });
 
@@ -91,16 +118,14 @@ export function useWallet() {
       const connectedAddress = accounts[0];
       setAddress(connectedAddress);
 
-      // Attempt to switch to Base network (8453 / 0x2105)
       try {
         await eth.request({
           method: "wallet_switchEthereumChain",
           params: [{ chainId: BASE_CHAIN_ID }],
         });
         setChainId(BASE_CHAIN_ID);
-      } catch (switchError: any) {
-        // Chain not added to wallet yet
-        if (switchError.code === 4902) {
+      } catch (switchError: unknown) {
+        if (providerErrorCode(switchError) === 4902) {
           try {
             await eth.request({
               method: "wallet_addEthereumChain",
@@ -123,8 +148,8 @@ export function useWallet() {
 
       setIsConnecting(false);
       return connectedAddress;
-    } catch (err: any) {
-      setError(err?.message || "User rejected connection request.");
+    } catch (err: unknown) {
+      setError((err instanceof Error ? err.message : null) || "User rejected connection request.");
       setIsConnecting(false);
       return null;
     }

@@ -107,8 +107,9 @@ export function Sidebar({
         text: `Loaded ${entries.length} on-chain asset${entries.length > 1 ? "s" : ""} ($${Math.round(res.total_value).toLocaleString()}).`,
       });
       onWalletImported(newHoldings, res.total_value);
-    } catch (err: any) {
-      setWalletMsg({ type: "error", text: err.message || "Could not query Base nodes." });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Could not query Base nodes.";
+      setWalletMsg({ type: "error", text: message });
     } finally {
       setIsWalletLoading(false);
     }

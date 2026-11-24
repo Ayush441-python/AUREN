@@ -1,133 +1,224 @@
 "use client";
 
-import React from "react";
-import { RiskAnalysis } from "@/lib/types";
-import { formatPercent, formatNumber } from "@/lib/format";
-import { PieChart, Layers, BarChart2, CheckCircle2 } from "lucide-react";
+import { Layers3, PieChart, ScanLine } from "lucide-react";
+import { formatNumber, formatPercent } from "@/lib/format";
+import { cn } from "@/lib/cn";
+import type { RiskAnalysis } from "@/lib/types";
+import { Metric, Panel, PanelHeader } from "@/components/ui/Panel";
+import { Treemap } from "@/components/dashboard/charts/Treemap";
 
 interface ExposureViewProps {
   data: RiskAnalysis;
 }
 
 export function ExposureView({ data }: ExposureViewProps) {
-  const sortedHoldings = Object.entries(data.normalized_weights).sort(
-    (a, b) => b[1] - a[1]
-  );
-
-  const sortedSectors = Object.entries(data.sector_exposure).sort(
-    (a, b) => b[1] - a[1]
-  );
+  const holdings = Object.entries(data.normalized_weights).sort((a, b) => b[1] - a[1]);
+  const sectors = Object.entries(data.sector_exposure).sort((a, b) => b[1] - a[1]);
+  const { concentration } = data;
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
-      {/* Header */}
-      <div className="border-b border-[#26262C] pb-5">
-        <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-[#F5F6F7]">
-          Factor & Asset Exposure
+    <div className="space-y-7">
+      <header className="border-b border-line pb-6">
+        <p className="auren-eyebrow">Portfolio intelligence / Exposure</p>
+        <h1 className="mt-3 font-display text-4xl leading-none text-primary sm:text-5xl">
+          Capital exposure
         </h1>
-        <p className="mt-1 text-xs sm:text-sm text-[#A1A4AB]">
-          Decomposition of portfolio capital across individual assets, sectors, and concentration metrics.
+        <p className="mt-3 max-w-3xl text-sm leading-relaxed text-muted">
+          Asset and sector decomposition of the current weight vector. Every percentage below is
+          derived from the supplied normalized weights or the grouped sector exposures in the
+          analysis response.
         </p>
-      </div>
+      </header>
 
-      {/* Concentration Summary Banner */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="panel-card p-5">
-          <span className="text-xs text-[#A1A4AB] block">Top 3 Holdings Concentration</span>
-          <div className="font-mono text-2xl font-semibold text-[#F5F6F7] my-1.5">
-            {formatPercent(data.concentration.top3_weight)}
-          </div>
-          <span className="text-xs text-[#6B6E76]">
-            {data.concentration.top3_weight > 0.6
-              ? "Exceeds 60.0% diversified threshold"
-              : "Within institutional diversification limit"}
-          </span>
+      <section aria-label="Concentration metrics" className="grid grid-cols-1 gap-px border border-line bg-line sm:grid-cols-2 xl:grid-cols-4">
+        <div className="bg-secondary px-5 py-5">
+          <Metric
+            label="Top asset"
+            value={concentration.top_asset}
+            detail={`${formatPercent(concentration.top_weight)} · above 30% adds +20 pts`}
+            tone={concentration.top_weight > 0.3 ? "negative" : "gold"}
+          />
         </div>
-
-        <div className="panel-card p-5">
-          <span className="text-xs text-[#A1A4AB] block">Effective Number of Assets</span>
-          <div className="font-mono text-2xl font-semibold text-[#7FB3A6] my-1.5">
-            {formatNumber(data.concentration.effective_assets, 1)}
-          </div>
-          <span className="text-xs text-[#6B6E76]">
-            Formula: 1 / HHI (Accounts for weight skew)
-          </span>
+        <div className="bg-secondary px-5 py-5">
+          <Metric
+            label="Top three"
+            value={formatPercent(concentration.top3_weight)}
+            detail="Combined weight of the three largest positions"
+          />
         </div>
-
-        <div className="panel-card p-5">
-          <span className="text-xs text-[#A1A4AB] block">Herfindahl-Hirschman Index (HHI)</span>
-          <div className="font-mono text-2xl font-semibold text-[#F5F6F7] my-1.5">
-            {formatNumber(data.concentration.hhi, 4)}
-          </div>
-          <span className="text-xs text-[#6B6E76]">
-            {data.concentration.hhi > 0.25 ? "High concentration profile" : "Moderate concentration profile"}
-          </span>
+        <div className="bg-secondary px-5 py-5">
+          <Metric
+            label="Effective assets"
+            value={formatNumber(concentration.effective_assets, 2)}
+            detail="1 / HHI · below 4 adds +15 pts"
+            tone={concentration.effective_assets < 4 ? "negative" : "positive"}
+          />
         </div>
-      </div>
+        <div className="bg-secondary px-5 py-5">
+          <Metric
+            label="HHI"
+            value={formatNumber(concentration.hhi, 4)}
+            detail="Σ (wᵢ)², computed from normalized weights"
+          />
+        </div>
+      </section>
 
-      {/* Main Breakdown: Asset Weights & Sector Allocation */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Asset Allocation Table */}
-        <div className="panel-card p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-[#F5F6F7] flex items-center gap-2">
-              <Layers className="h-4 w-4 text-[#E3B341]" />
-              <span>Asset Allocations</span>
-            </h3>
-            <span className="font-mono text-xs text-[#6B6E76]">
-              {sortedHoldings.length} Assets Total
+      <Panel>
+        <PanelHeader
+          eyebrow="Weight topology"
+          title="Asset allocation map"
+          action={
+            <span className="font-mono text-[0.6rem] uppercase tracking-[0.16em] text-faint">
+              {holdings.length} positions
             </span>
-          </div>
+          }
+        />
+        <div className="p-5 sm:p-6">
+          <Treemap weights={data.normalized_weights} />
+        </div>
+      </Panel>
 
-          <div className="space-y-3.5">
-            {sortedHoldings.map(([ticker, weight]) => (
-              <div key={ticker} className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-mono font-medium text-[#F5F6F7]">{ticker}</span>
-                  <span className="font-mono text-[#F5F6F7]">{formatPercent(weight)}</span>
-                </div>
-                <div className="h-2 w-full rounded-full bg-[#1C1C21] overflow-hidden">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
+        <Panel className="xl:col-span-7">
+          <PanelHeader
+            eyebrow="Position ledger"
+            title="Individual weights"
+            action={
+              <Layers3 aria-hidden="true" className="h-4 w-4 text-gold" />
+            }
+          />
+          <div className="divide-y divide-line/60">
+            {holdings.map(([ticker, weight], index) => (
+              <div key={ticker} className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 px-5 py-4 sm:px-6">
+                <span className="font-mono text-[0.62rem] text-faint tabular">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+                <div className="min-w-0">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="truncate font-mono text-xs uppercase tracking-[0.12em] text-primary">
+                      {ticker}
+                    </span>
+                    <span className="sr-only">{formatPercent(weight)}</span>
+                  </div>
                   <div
-                    className="h-full rounded-full bg-[#E3B341] transition-all duration-300"
-                    style={{ width: `${Math.min(100, weight * 100)}%` }}
-                  />
+                    className="mt-2 h-1.5 w-full bg-elevated"
+                    role="meter"
+                    aria-label={`${ticker} weight`}
+                    aria-valuenow={Math.round(weight * 100)}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                  >
+                    <div
+                      className={cn("h-full", weight > 0.3 ? "bg-negative/70" : "bg-champagne/70")}
+                      style={{ width: `${Math.min(100, weight * 100)}%` }}
+                    />
+                  </div>
                 </div>
+                <span
+                  className={cn(
+                    "font-mono text-xs tabular",
+                    weight > 0.3 ? "text-negative" : "text-highlight"
+                  )}
+                >
+                  {formatPercent(weight)}
+                </span>
               </div>
             ))}
           </div>
-        </div>
+          <p className="border-t border-line px-5 py-3 font-mono text-[0.62rem] leading-relaxed text-faint sm:px-6">
+            Bar lengths are proportional to allocation. Positions above 30% are marked because they
+            trigger the single-asset concentration penalty.
+          </p>
+        </Panel>
 
-        {/* Sector Exposure Table */}
-        <div className="panel-card p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-[#F5F6F7] flex items-center gap-2">
-              <PieChart className="h-4 w-4 text-[#7FB3A6]" />
-              <span>Sector & Factor Groups</span>
-            </h3>
-            <span className="font-mono text-xs text-[#6B6E76]">
-              {sortedSectors.length} Sectors
+        <Panel className="xl:col-span-5">
+          <PanelHeader
+            eyebrow="Group decomposition"
+            title="Sector exposure"
+            action={
+              <PieChart aria-hidden="true" className="h-4 w-4 text-positive" />
+            }
+          />
+          <div className="space-y-5 p-5 sm:p-6">
+            {sectors.length ? (
+              sectors.map(([sector, exposure]) => (
+                <div key={sector}>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="truncate text-xs text-primary" title={sector}>
+                      {sector}
+                    </span>
+                    <span
+                      className={cn(
+                        "font-mono text-xs tabular",
+                        exposure > 0.5 ? "text-negative" : "text-muted"
+                      )}
+                    >
+                      {formatPercent(exposure)}
+                    </span>
+                  </div>
+                  <div
+                    className="mt-2 h-1 w-full bg-elevated"
+                    role="meter"
+                    aria-label={`${sector} exposure`}
+                    aria-valuenow={Math.round(exposure * 100)}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                  >
+                    <div
+                      className={cn("h-full", exposure > 0.5 ? "bg-negative/70" : "bg-positive/60")}
+                      style={{ width: `${Math.min(100, exposure * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-xs text-muted">No sector exposure was supplied.</p>
+            )}
+          </div>
+          <div className="flex items-start gap-2 border-t border-line px-5 py-4 text-xs leading-relaxed text-faint sm:px-6">
+            <ScanLine aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gold" />
+            <span>
+              A sector weight above 50% adds +15 points to the deterministic risk score.
             </span>
           </div>
+        </Panel>
+      </div>
 
-          <div className="space-y-3.5">
-            {sortedSectors.map(([sector, exposure]) => (
-              <div key={sector} className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-medium text-[#F5F6F7]">{sector}</span>
-                  <span className="font-mono text-[#F5F6F7]">{formatPercent(exposure)}</span>
-                </div>
-                <div className="h-2 w-full rounded-full bg-[#1C1C21] overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all duration-300 ${
-                      exposure > 0.4 ? "bg-[#E07A5F]" : "bg-[#7FB3A6]"
-                    }`}
-                    style={{ width: `${Math.min(100, exposure * 100)}%` }}
-                  />
-                </div>
-              </div>
-            ))}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+        <Panel>
+          <div className="p-5">
+            <p className="auren-eyebrow">Concentration read</p>
+            <p className="mt-3 font-display text-3xl text-primary tabular">
+              {formatPercent(concentration.top3_weight)}
+            </p>
+            <p className="mt-2 text-xs leading-relaxed text-muted">
+              Held in the three largest positions. This is a measured value, not a scored penalty
+              rule.
+            </p>
           </div>
-        </div>
+        </Panel>
+        <Panel>
+          <div className="p-5">
+            <p className="auren-eyebrow">Effective breadth</p>
+            <p className="mt-3 font-display text-3xl text-primary tabular">
+              {formatNumber(concentration.effective_assets, 2)}
+            </p>
+            <p className="mt-2 text-xs leading-relaxed text-muted">
+              The HHI-weighted equivalent number of equally sized holdings.
+            </p>
+          </div>
+        </Panel>
+        <Panel>
+          <div className="p-5">
+            <p className="auren-eyebrow">Largest sector</p>
+            <p className="mt-3 truncate font-display text-3xl text-primary" title={sectors[0]?.[0]}>
+              {sectors[0]?.[0] ?? "—"}
+            </p>
+            <p className="mt-2 font-mono text-xs text-champagne tabular">
+              {formatPercent(sectors[0]?.[1] ?? null)}
+            </p>
+          </div>
+        </Panel>
       </div>
     </div>
   );

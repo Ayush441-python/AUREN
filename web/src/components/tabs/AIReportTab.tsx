@@ -21,9 +21,9 @@ export function AIReportTab({ analysis }: Props) {
     try {
       const res = await generateAIReport(analysis);
       setReportData(res);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setErrorMsg(
-        err.message ||
+        (err instanceof Error ? err.message : null) ||
           "Could not generate report. Ensure LLM_API_KEY is configured on the backend."
       );
     } finally {
