@@ -34,7 +34,7 @@ export function CorrelationView({ data }: CorrelationViewProps) {
           Correlation Matrix & Co-Movement
         </h1>
         <p className="mt-1 text-xs sm:text-sm text-[#A1A4AB]">
-          Pairwise correlation coefficients calculated from aligned daily log-returns over 252 sessions.
+          Pairwise Pearson correlation coefficients calculated from aligned daily percentage returns across available historical sessions.
         </p>
       </div>
 
