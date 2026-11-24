@@ -1,17 +1,17 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { BookOpen, Braces, ShieldCheck, Terminal } from "lucide-react";
 import { formatNumber, formatPercent, formatSignedPercent } from "@/lib/format";
 import type { RiskAnalysis } from "@/lib/types";
 import { Panel, PanelHeader } from "@/components/ui/Panel";
 import { CodeBlock } from "@/components/ui/CodeBlock";
 import { RiskBadge } from "@/components/ui/RiskBadge";
+import { getApiBase } from "@/lib/api";
 
 interface DocsProofViewProps {
   data?: RiskAnalysis;
 }
-
-const apiBase = process.env.NEXT_PUBLIC_API_URL || "https://auren-api-8yrq.onrender.com";
 
 const rules = [
   {
@@ -46,7 +46,23 @@ const rules = [
   },
 ];
 
-const curlExample = `curl -X POST ${apiBase}/risk \\
+export function DocsProofView({ data }: DocsProofViewProps) {
+  const [apiBase, setApiBase] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        return getApiBase();
+      } catch {
+        // fallback
+      }
+    }
+    return process.env.NEXT_PUBLIC_API_URL || "https://auren-api-8yrq.onrender.com";
+  });
+
+  useEffect(() => {
+    setApiBase(getApiBase());
+  }, []);
+
+  const curlExample = `curl -X POST ${apiBase}/risk \\
   -H "Content-Type: application/json" \\
   -d '{
     "weights": {
@@ -58,7 +74,7 @@ const curlExample = `curl -X POST ${apiBase}/risk \\
     "period": "2y"
   }'`;
 
-const fetchExample = `const response = await fetch(
+  const fetchExample = `const response = await fetch(
   "${apiBase}/risk",
   {
     method: "POST",
