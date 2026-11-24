@@ -65,11 +65,11 @@ export function WalletConnectModal({
         const res = await inspectWallet(addr);
         if (res.has_holdings && Object.keys(res.portfolio).length > 0) {
           onSelectPortfolio(res.portfolio, `Base Wallet (${addr.slice(0, 6)}...${addr.slice(-4)})`);
+          onClose();
         } else {
-          // Normal wallet with 0 tokenized stocks: notify user gracefully
-          setErrorMsg(res.message || "Connected. Loaded reference starter portfolio.");
+          // Normal wallet with 0 tokenized stocks: keep dialog open and show explanation
+          setErrorMsg(res.message || "No supported assets in this wallet.");
         }
-        onClose();
       }
     } catch (e: any) {
       setErrorMsg(e?.message || "Failed to connect to wallet.");
