@@ -73,3 +73,22 @@ def test_stress_scenario():
     w = pd.Series([0.5, 0.5], index=["NVDA", "GLD"])
     shocks = {"Big Tech": -0.20}
     assert stress(w, shocks) == pytest.approx(-0.10)
+
+
+def test_zero_variance_asset_diagonal_correlation():
+    dates = pd.bdate_range("2025-01-06", periods=31)
+    prices = pd.DataFrame(
+        {
+            "NVDA": [100.0 + i * 1.5 for i in range(31)],
+            "USDC": [1.0] * 31,
+        },
+        index=dates,
+    )
+    raw_corr = correlation(prices, ["NVDA", "USDC"])
+    api_corr = raw_corr.fillna(0.0)
+    assert raw_corr.loc["USDC", "USDC"] == pytest.approx(1.0)
+    assert api_corr.loc["USDC", "USDC"] == pytest.approx(1.0)
+    assert api_corr.loc["NVDA", "NVDA"] == pytest.approx(1.0)
+    assert api_corr.loc["NVDA", "USDC"] == pytest.approx(0.0)
+    assert api_corr.loc["USDC", "NVDA"] == pytest.approx(0.0)
+

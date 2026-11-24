@@ -300,6 +300,8 @@ def compute_risk(payload: PortfolioRequest):
     mdd = _finite(max_drawdown(pr))
 
     corr = correlation(prices, w.index).fillna(0.0)
+    for col in corr.columns:
+        corr.at[col, col] = 1.0
     pairs = high_pairs(corr)
     exposure = sector_exposure(w)
 
