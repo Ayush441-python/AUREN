@@ -116,119 +116,142 @@ SECTORS: Dict[str, str] = {
     "LINK-USD": "Crypto",
     "SUI-USD": "Crypto",
     "COIN": "Crypto Exchange",
-    "MSTR": "Bitcoin Treasury",
-    "USDC": "Stablecoin",
 }
 
-# Broad group for each ticker.
-_GROUP_MEMBERS: Dict[str, List[str]] = {
-    "Big Tech": [
-        "NVDA", "MSFT", "AAPL", "GOOGL", "GOOG", "AMZN", "META",
-        "AVGO", "ORCL", "NFLX"
-    ],
-    "AI & Semiconductors": [
-        "AMD", "INTC", "QCOM", "MU", "ARM", "TSM", "ASML",
-        "AMAT", "LRCX", "ADI", "MRVL", "TXN"
-    ],
-    "Software & Cybersecurity": [
-        "PLTR", "ADBE", "CRM", "PANW", "CRWD", "SNPS",
-        "NOW", "WDAY", "INTU", "ADSK"
-    ],
-    "Internet & Communication": [
-        "CSCO", "TMUS", "SHOP", "ABNB", "PYPL", "MELI", "BABA"
-    ],
-    "Consumer & Retail": [
-        "TSLA", "COST", "WMT", "SBUX", "PEP", "MDLZ", "PG", "DIS"
-    ],
-    "Healthcare & Biotechnology": [
-        "AMGN", "GILD", "VRTX", "REGN", "ISRG", "ALNY", "JNJ"
-    ],
-    "Industrial & Energy": [
-        "HON", "ODFL", "PCAR", "XEL", "AEP", "XOM", "CVX", "XLE"
-    ],
-    "Financials": [
-        "JPM", "V", "MA", "BAC", "GS", "XLF"
-    ],
-    "Broad Market ETFs": [
-        "SPY", "QQQ", "IWM", "DIA", "VOO", "VTI", "XLK"
-    ],
-    "Bonds & Fixed Income": [
-        "TLT", "BND"
-    ],
-    "Gold & Commodities": [
-        "GLD", "SLV"
-    ],
-    "Crypto": [
-        "ETH-USD", "BTC-USD", "SOL-USD", "AVAX-USD", "DOGE-USD",
-        "LINK-USD", "SUI-USD", "COIN", "MSTR"
-    ],
-    "Cash & Stablecoins": [
-        "USDC"
-    ],
-}
+# Broad risk groups mapping sector/industry keywords to macro categories.
+GROUPS: List[Tuple[str, List[str]]] = [
+    (
+        "AI & Semiconductors",
+        [
+            "Semiconductors",
+            "Semiconductor Equipment",
+            "Memory Chips",
+            "AI & Data Analytics",
+        ],
+    ),
+    (
+        "Big Tech & Cloud",
+        [
+            "Software",
+            "Consumer Technology",
+            "Internet & AI",
+            "E-Commerce & Cloud",
+            "Social Media",
+            "Software & Cloud",
+            "Software & Semiconductors",
+            "Enterprise Software",
+        ],
+    ),
+    (
+        "Cybersecurity & Infrastructure",
+        [
+            "Cybersecurity",
+            "Networking",
+            "Telecommunications",
+            "Engineering Software",
+        ],
+    ),
+    (
+        "Consumer, Retail & Entertainment",
+        [
+            "Entertainment",
+            "E-Commerce",
+            "Travel & Hospitality",
+            "Automotive",
+            "Retail",
+            "Restaurants",
+            "Consumer Staples",
+        ],
+    ),
+    (
+        "Financials, Payments & Real Estate",
+        [
+            "Financial Software",
+            "Digital Payments",
+            "E-Commerce & Fintech",
+            "Banks",
+            "Investment Banking",
+            "Financial Select Sector ETF",
+        ],
+    ),
+    (
+        "Healthcare & Biotech",
+        [
+            "Biotechnology",
+            "Medical Devices",
+            "Pharmaceuticals",
+        ],
+    ),
+    (
+        "Industrials, Energy & Utilities",
+        [
+            "Industrials",
+            "Transportation",
+            "Automotive Manufacturing",
+            "Utilities",
+            "Oil & Gas",
+            "Energy Select Sector ETF",
+        ],
+    ),
+    (
+        "Broad Market Indices & ETFs",
+        [
+            "S&P 500 Index ETF",
+            "Nasdaq 100 Index ETF",
+            "Russell 2000 ETF",
+            "Dow Jones ETF",
+            "S&P 500 ETF",
+            "Total Stock Market ETF",
+            "20+ Year Treasury Bond ETF",
+            "Total Bond Market ETF",
+            "Technology Select Sector ETF",
+        ],
+    ),
+    (
+        "Commodities, Crypto & Alternatives",
+        [
+            "Gold",
+            "Silver",
+            "Crypto",
+            "Crypto Exchange",
+        ],
+    ),
+]
 
-GROUPS: Dict[str, str] = {t: g for g, members in _GROUP_MEMBERS.items() for t in members}
 
-# Ensure static synchronization
-_mismatch = set(SECTORS) ^ set(GROUPS)
-if _mismatch:
-    raise ValueError(f"Tickers missing from SECTORS or GROUPS: {sorted(_mismatch)}")
+def get_sector(ticker: str, metadata_provider=None) -> str:
+    """Resolve the sector for a given ticker, querying the metadata provider if unknown."""
+    if ticker in SECTORS:
+        return SECTORS[ticker]
 
-
-def classify_and_register_ticker(ticker: str) -> Tuple[str, str]:
-    """Dynamically classify and register any new ticker on the fly."""
-    t = ticker.strip().upper()
-    if t in SECTORS and t in GROUPS:
-        return SECTORS[t], GROUPS[t]
-
-    # Deterministic heuristics
-    sector = "General Equities"
-    group = "General Equities"
-
-    if t.endswith("-USD") or t in {"BTC", "ETH", "SOL", "DOGE", "AVAX", "CBBTC"}:
-        sector = "Crypto"
-        group = "Crypto"
-    elif t in {"USDC", "USDT", "DAI", "USD", "BUSD"}:
-        sector = "Stablecoin"
-        group = "Cash & Stablecoins"
-    elif t in {"SPY", "QQQ", "IWM", "DIA", "VOO", "VTI", "IVV"}:
-        sector = "Index ETF"
-        group = "Broad Market ETFs"
-    elif t in {"TLT", "BND", "AGG", "IEF", "SHY"}:
-        sector = "Fixed Income"
-        group = "Bonds & Fixed Income"
-    elif t in {"GLD", "SLV", "IAU", "USO", "UNG"}:
-        sector = "Commodities"
-        group = "Gold & Commodities"
-    else:
+    if metadata_provider is not None:
         try:
-            import yfinance as yf
-            info = yf.Ticker(t).info
-            sec = info.get("sector")
-            ind = info.get("industry")
-            if sec:
-                sector = ind or sec
-                sec_lower = sec.lower()
-                ind_lower = str(ind).lower()
-                if "semiconductor" in ind_lower or "chip" in ind_lower:
-                    group = "AI & Semiconductors"
-                elif "technology" in sec_lower or "software" in sec_lower:
-                    group = "Big Tech"
-                elif "healthcare" in sec_lower or "biotech" in ind_lower:
-                    group = "Healthcare & Biotechnology"
-                elif "financial" in sec_lower or "bank" in ind_lower:
-                    group = "Financials"
-                elif "consumer" in sec_lower or "retail" in ind_lower:
-                    group = "Consumer & Retail"
-                elif "communication" in sec_lower or "media" in ind_lower:
-                    group = "Internet & Communication"
-                elif "energy" in sec_lower or "utilities" in sec_lower or "industrial" in sec_lower:
-                    group = "Industrial & Energy"
-                else:
-                    group = sec
+            meta = metadata_provider.fetch(ticker)
+            if meta and hasattr(meta, "info") and meta.info:
+                sector = meta.info.get("sector")
+                industry = meta.info.get("industry")
+                if industry:
+                    SECTORS[ticker] = industry
+                    return industry
+                if sector:
+                    SECTORS[ticker] = sector
+                    return sector
         except Exception as e:
-            logger.info(f"Could not auto-fetch metadata for ticker {t}: {e}")
+            logger.warning(f"Failed to fetch metadata for {ticker}: {e}")
 
-    SECTORS[t] = sector
-    GROUPS[t] = group
-    return sector, group
+    return "General Equities"
+
+
+def get_group(sector_or_industry: str) -> str:
+    """Map a sector or industry label to a broad risk group."""
+    for group_name, keywords in GROUPS:
+        for kw in keywords:
+            if kw.lower() in sector_or_industry.lower():
+                return group_name
+    return "General Equities"
+
+
+def classify_ticker(ticker: str, metadata_provider=None) -> str:
+    """Classify a ticker into its broad risk group."""
+    sector = get_sector(ticker, metadata_provider)
+    return get_group(sector)
