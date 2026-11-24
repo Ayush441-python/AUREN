@@ -1,3 +1,4 @@
+import pytest
 from fastapi.testclient import TestClient
 from api import app
 
@@ -107,3 +108,108 @@ def test_wallet_endpoint_shape(monkeypatch):
     assert data["portfolio"] == {"NVDA": 1.0}
     assert data["holdings"][0]["ticker"] == "NVDA"
     assert data["total_value"] == 200.0
+
+
+@pytest.mark.parametrize(
+    "end_fx,end_price,expected_index,expected_vol",
+    [
+        (120.0, 12_000.0, 100.0, 0.0),
+        (80.0, 8_000.0, 100.0, 0.0),
+        (100.0, 12_000.0, 110.0, 0.2898),
+    ],
+)
+def test_risk_mixed_currency_converts_to_usd(end_fx, end_price, expected_index, expected_vol):
+    from types import SimpleNamespace
+    from unittest.mock import patch
+    import pandas as pd
+    import api as api_module
+    from engine import data
+
+    dates = pd.bdate_range("2025-01-06", periods=31)
+    fx = pd.Series([100.0] * 15 + [end_fx] * 16, index=dates)
+    japanese = pd.Series([10_000.0] * 15 + [end_price] * 16, index=dates)
+    quotes = pd.DataFrame({"7203.T": japanese, "MSFT": 100.0, "JPY=X": fx}, index=dates)
+
+    provider = SimpleNamespace(
+        download=lambda tickers, **kwargs: {"Close": quotes[tickers]},
+        Ticker=lambda symbol: SimpleNamespace(
+            info={
+                "currency": "JPY" if symbol == "7203.T" else "USD",
+                "sector": "Consumer Cyclical",
+                "industry": "Auto Manufacturers",
+            }
+        ),
+    )
+
+    with (
+        patch.dict(data._memo, {}, clear=True),
+        patch.object(data, "yf", provider),
+        patch.dict("sys.modules", {"yfinance": provider}),
+        patch.dict(api_module.SECTORS),
+        patch.dict(api_module.GROUPS),
+    ):
+        result = api_module.compute_risk(
+            api_module.PortfolioRequest(weights={"7203.T": 50, "MSFT": 50})
+        )
+
+    assert result["price_series"]["Portfolio"][-1] == pytest.approx(expected_index)
+    assert result["volatility"] == pytest.approx(expected_vol, abs=1e-4)
+
+
+def test_risk_mixed_currency_raises_when_fx_unavailable():
+    from types import SimpleNamespace
+    from unittest.mock import patch
+    import pandas as pd
+    from fastapi import HTTPException
+    import api as api_module
+    from engine import data
+
+    dates = pd.bdate_range("2025-01-06", periods=31)
+    japanese = pd.Series([10_000.0] * 15 + [12_000.0] * 16, index=dates)
+    quotes = pd.DataFrame({"7203.T": japanese, "MSFT": 100.0}, index=dates)
+
+    provider = SimpleNamespace(
+        download=lambda tickers, **kwargs: {"Close": quotes[tickers]},
+        Ticker=lambda symbol: SimpleNamespace(
+            info={
+                "currency": "JPY" if symbol == "7203.T" else "USD",
+                "sector": "Consumer Cyclical",
+                "industry": "Auto Manufacturers",
+            }
+        ),
+    )
+
+    with (
+        patch.dict(data._memo, {}, clear=True),
+        patch.object(data, "yf", provider),
+        patch.dict("sys.modules", {"yfinance": provider}),
+        patch.dict(api_module.SECTORS),
+        patch.dict(api_module.GROUPS),
+        pytest.raises(HTTPException) as exc_info,
+    ):
+        api_module.compute_risk(
+            api_module.PortfolioRequest(weights={"7203.T": 50, "MSFT": 50})
+        )
+
+    assert exc_info.value.status_code == 502
+    assert "USD performance is unavailable" in exc_info.value.detail
+
+
+def test_convert_prices_to_usd_handles_subunit_currency():
+    from types import SimpleNamespace
+    from unittest.mock import patch
+    import pandas as pd
+    from engine import data
+
+    dates = pd.bdate_range("2025-01-06", periods=5)
+    # 10,000 GBp = 100 GBP; at GBP=X = 0.80 GBP/USD -> 125 USD
+    quotes = pd.DataFrame({"AZN.L": [10_000.0] * 5, "GBP=X": [0.80] * 5}, index=dates)
+    provider = SimpleNamespace(
+        download=lambda tickers, **kwargs: {"Close": quotes[tickers]},
+        Ticker=lambda symbol: SimpleNamespace(info={"currency": "GBp"}),
+    )
+
+    with patch.dict(data._memo, {}, clear=True), patch.object(data, "yf", provider):
+        usd = data.convert_prices_to_usd(quotes[["AZN.L"]])
+
+    assert usd["AZN.L"].iloc[-1] == pytest.approx(125.0)
