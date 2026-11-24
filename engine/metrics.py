@@ -34,7 +34,8 @@ def max_drawdown(pr: pd.Series) -> float:
 
 
 def correlation(prices: pd.DataFrame, tickers) -> pd.DataFrame:
-    return prices[list(tickers)].dropna().pct_change().dropna().corr()
+    df = prices[list(tickers)].dropna()
+    return np.log(df / df.shift(1)).dropna().corr()
 
 
 def high_pairs(corr: pd.DataFrame, threshold: float = 0.7) -> list[tuple]:
