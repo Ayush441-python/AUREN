@@ -36,11 +36,21 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   if (!res.ok) {
     let errorMsg = `Server error (${res.status})`;
     try {
-      const data = await res.json();
-      if (data && data.detail) {
-        errorMsg = Array.isArray(data.detail)
-          ? data.detail.map((x: any) => x.msg || JSON.stringify(x)).join("; ")
-          : String(data.detail);
+      const data: unknown = await res.json();
+      if (typeof data === "object" && data !== null && "detail" in data) {
+        const detail = (data as { detail?: unknown }).detail;
+        if (Array.isArray(detail)) {
+          errorMsg = detail
+            .map((item: unknown) => {
+              if (typeof item === "object" && item !== null && "msg" in item) {
+                return String((item as { msg?: unknown }).msg || JSON.stringify(item));
+              }
+              return JSON.stringify(item);
+            })
+            .join("; ");
+        } else {
+          errorMsg = String(detail);
+        }
       }
     } catch {
       // Non-JSON response
@@ -93,7 +103,7 @@ export async function inspectWallet(
 }
 
 export async function generateAIReport(
-  metrics: Record<string, any>,
+  metrics: object,
   model?: string
 ): Promise<AIReportResponse> {
   return request<AIReportResponse>("/report", {

@@ -35,7 +35,7 @@ export function HistoryTab({ analysis }: Props) {
     const step = Math.max(1, Math.floor(dates.length / 100));
     const items = [];
     for (let i = 0; i < dates.length; i += step) {
-      const item: Record<string, any> = {
+      const item: Record<string, string | number | null> = {
         date: dates[i],
         Portfolio: price_series.Portfolio ? price_series.Portfolio[i] : null,
         Drawdown: drawdown_series ? drawdown_series[i] * 100 : null,
@@ -192,7 +192,7 @@ export function HistoryTab({ analysis }: Props) {
               <XAxis dataKey="date" stroke="#606676" tick={{ fontSize: 10, fill: "#8890a0" }} />
               <YAxis stroke="#606676" tick={{ fontSize: 10, fill: "#8890a0" }} />
               <Tooltip
-                formatter={(val: any) => [`${Number(val).toFixed(2)}%`, "Drawdown"]}
+                formatter={(val: unknown) => [`${Number(val).toFixed(2)}%`, "Drawdown"]}
                 contentStyle={{
                   backgroundColor: "#131722",
                   borderColor: "rgba(255,255,255,0.12)",

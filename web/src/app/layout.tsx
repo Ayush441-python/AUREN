@@ -1,12 +1,40 @@
 import type { Metadata } from "next";
+import { Cormorant_Garamond, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
+const geist = Geist({
+  variable: "--font-geist",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const cormorant = Cormorant_Garamond({
+  variable: "--font-cormorant",
+  subsets: ["latin"],
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "AUREN — Portfolio Risk Intelligence",
+  title: {
+    default: "AUREN — Portfolio Risk Intelligence",
+    template: "%s — AUREN",
+  },
   description:
     "Institutional-grade portfolio risk analytics for liquid equities, ETFs, and crypto. Deterministic, mathematically verified, transparent.",
   icons: {
     icon: "/favicon.ico",
+  },
+  openGraph: {
+    title: "AUREN — Risk has layers. See them all.",
+    description:
+      "A cinematic risk intelligence platform for understanding exposure, correlation, and portfolio vulnerability.",
+    type: "website",
   },
 };
 
@@ -16,20 +44,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="h-full dark antialiased">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin="anonymous"
-        />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body className="min-h-full flex flex-col bg-[#0E0E10] text-[#F5F6F7] selection:bg-[#E3B341]/20 selection:text-[#F5F6F7]">
+    <html
+      lang="en"
+      className={`${geist.variable} ${geistMono.variable} ${cormorant.variable}`}
+    >
+      <body className="min-h-screen bg-obsidian text-primary antialiased selection:bg-gold/20 selection:text-highlight">
         {children}
       </body>
     </html>

@@ -1,102 +1,222 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg: #0E0E10;
-  --color-surface: #151518;
-  --color-raised: #1C1C21;
-  --color-border: #26262C;
-  --color-border-subtle: #1F1F24;
-  --color-text-1: #F5F6F7;
-  --color-text-2: #A1A4AB;
-  --color-text-3: #6B6E76;
-  --color-gold: #E3B341;
-  --color-gold-soft: rgba(227, 179, 65, 0.12);
-  --color-risk-low: #7FB3A6;
-  --color-risk-mid: #E3B341;
-  --color-risk-high: #E07A5F;
-  --color-focus: #F2CF7A;
+  --color-obsidian: #080808;
+  --color-secondary: #10100F;
+  --color-surface: #141311;
+  --color-elevated: #1C1A17;
+  --color-line: #302A20;
+  --color-gold: #D4AF37;
+  --color-champagne: #EACB83;
+  --color-highlight: #F5DFA0;
+  --color-primary: #F5F1E8;
+  --color-muted: #A39D90;
+  --color-faint: #77736C;
+  --color-positive: #34D399;
+  --color-negative: #F87171;
 
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-display: var(--font-cormorant), "Cormorant Garamond", Georgia, serif;
+  --font-sans: var(--font-geist), "Geist", "Inter", system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), "Geist Mono", ui-monospace, monospace;
 }
 
 :root {
-  --bg: #0E0E10;
-  --surface: #151518;
-  --raised: #1C1C21;
-  --border: #26262C;
-  --border-subtle: #1F1F24;
-  --text: #F5F6F7;
-  --text-2: #A1A4AB;
-  --text-3: #6B6E76;
-  --gold: #E3B341;
-  --gold-soft: rgba(227, 179, 65, 0.12);
-  --risk-low: #7FB3A6;
-  --risk-mid: #E3B341;
-  --risk-high: #E07A5F;
-  --focus: #F2CF7A;
+  --obsidian: #080808;
+  --secondary: #10100F;
+  --surface: #141311;
+  --elevated: #1C1A17;
+  --line: #302A20;
+  --gold: #D4AF37;
+  --champagne: #EACB83;
+  --highlight: #F5DFA0;
+  --primary: #F5F1E8;
+  --muted: #A39D90;
+  --faint: #77736C;
+  --positive: #34D399;
+  --negative: #F87171;
 }
 
 * {
   box-sizing: border-box;
 }
 
-html, body {
-  background-color: var(--bg);
-  color: var(--text);
+html {
+  background: var(--obsidian);
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--obsidian);
+  color: var(--primary);
   font-family: var(--font-sans);
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
-/* Numeric alignment across all financial data */
+::selection {
+  background: rgba(212, 175, 55, 0.24);
+  color: var(--highlight);
+}
+
+*:focus-visible {
+  outline: 2px solid var(--champagne);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--obsidian);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2b261e;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #4a3d26;
+}
+
+.tabular,
 .font-mono,
-.tabular-nums,
 [data-tabular="true"] {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums slashed-zero;
   font-feature-settings: "tnum" 1, "zero" 1;
-  font-variant-numeric: tabular-nums;
 }
 
-/* Custom scrollbars - quiet and minimal */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: var(--bg);
-}
-::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 9999px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--text-3);
+.auren-display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.035em;
+  line-height: 0.92;
 }
 
-/* Clean institutional panel card */
-.panel-card {
-  background-color: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
+.auren-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--champagne);
 }
 
-.panel-card-raised {
-  background-color: var(--raised);
-  border: 1px solid var(--border);
-  border-radius: 8px;
+.auren-grid {
+  background-image: radial-gradient(rgba(234, 203, 131, 0.16) 0.6px, transparent 0.6px);
+  background-size: 28px 28px;
 }
 
-/* Accessible focus ring */
-*:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
+.auren-grid-fade {
+  mask-image: radial-gradient(ellipse at center, black 10%, transparent 72%);
+  -webkit-mask-image: radial-gradient(ellipse at center, black 10%, transparent 72%);
 }
 
-/* Reduced motion preference */
+.auren-panel {
+  background: linear-gradient(145deg, rgba(28, 26, 23, 0.92), rgba(16, 16, 15, 0.94));
+  border: 1px solid rgba(48, 42, 32, 0.9);
+  border-radius: 2px;
+  position: relative;
+}
+
+.auren-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(120deg, rgba(234, 203, 131, 0.035), transparent 38%);
+}
+
+.auren-hairline {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.42), transparent);
+}
+
+.auren-gold-text {
+  background: linear-gradient(180deg, var(--highlight), var(--gold) 58%, #a78025);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.auren-scrollbar-none {
+  scrollbar-width: none;
+}
+
+.auren-scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes auren-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes auren-breathe {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.75;
+  }
+}
+
+@keyframes auren-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.auren-enter {
+  animation: auren-rise 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.auren-breathe {
+  animation: auren-breathe 5s ease-in-out infinite;
+}
+
+.auren-spin {
+  animation: auren-spin 0.9s linear infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  * {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
