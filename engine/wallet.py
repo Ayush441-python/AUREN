@@ -15,6 +15,7 @@ logger = logging.getLogger("auren-wallet")
 
 API_URL = "https://api.coinbase.com/v1/tokenized-stocks"
 TOKEN_CACHE_FILE = pathlib.Path(__file__).parent.parent / "data" / "tokenized_stocks.json"
+PRICES_CSV_FILE = pathlib.Path(__file__).parent.parent / "data" / "prices.csv"
 
 # High-availability Base RPC failover pool
 PRIMARY_BASE_RPC = os.getenv("BASE_RPC_URL", "https://mainnet.base.org")
@@ -72,6 +73,58 @@ def load_bundled_tokens() -> List[Dict[str, Any]]:
     return []
 
 
+def get_latest_eth_price() -> Tuple[float, str, bool]:
+    """Retrieve the latest dated ETH price from prices.csv or fallback to estimated $3,300."""
+    if PRICES_CSV_FILE.is_file():
+        try:
+            df = pd.read_csv(PRICES_CSV_FILE)
+            # Find ETH or ETH-USD column/row depending on format
+            date_col = None
+            for col in ["date", "Date", "timestamp", "Timestamp"]:
+                if col in df.columns:
+                    date_col = col
+                    break
+            
+            # Look for ETH / ETH-USD column
+            eth_col = None
+            for col in ["ETH", "ETH-USD", "eth", "eth-usd"]:
+                if col in df.columns:
+                    eth_col = col
+                    break
+            
+            if eth_col and date_col:
+                valid_df = df.dropna(subset=[eth_col])
+                if not valid_df.empty:
+                    # Sort by date descending
+                    valid_df = valid_df.sort_values(by=date_col, ascending=False)
+                    latest_row = valid_df.iloc[0]
+                    price = float(latest_row[eth_col])
+                    date_str = str(latest_row[date_col])
+                    return price, date_str, False
+            
+            # Alternatively, if format is Date, Ticker, Close/Price
+            if "Ticker" in df.columns or "ticker" in df.columns:
+                t_col = "Ticker" if "Ticker" in df.columns else "ticker"
+                p_col = None
+                for col in ["Close", "price", "Price", "nav", "NAV"]:
+                    if col in df.columns:
+                        p_col = col
+                        break
+                if p_col and date_col:
+                    eth_rows = df[df[t_col].astype(str).str.upper().isin(["ETH", "ETH-USD"])]
+                    if not eth_rows.empty:
+                        eth_rows = eth_rows.sort_values(by=date_col, ascending=False)
+                        latest_row = eth_rows.iloc[0]
+                        price = float(latest_row[p_col])
+                        date_str = str(latest_row[date_col])
+                        return price, date_str, False
+        except Exception as e:
+            logger.warning(f"Error reading latest ETH price from prices.csv: {e}")
+
+    # Fallback estimate
+    return 3300.0, "Estimated", True
+
+
 def list_tokenized_stocks(timeout: int = 5) -> List[Dict[str, Any]]:
     """Fetch live tokenized stock metadata with rock-solid fallback to bundled registry."""
     tokens: List[Dict[str, Any]] = []
@@ -99,182 +152,132 @@ def list_tokenized_stocks(timeout: int = 5) -> List[Dict[str, Any]]:
     except Exception as e:
         logger.info(f"Coinbase API unreachable ({e}); using bundled token registry fallback.")
 
-    bundled = load_bundled_tokens()
-    return bundled if bundled else tokens
+    return load_bundled_tokens()
 
 
-def _rpc_post_with_failover(payload: Any, rpc_urls: List[str], timeout: int = 15) -> Any:
-    """Attempt JSON-RPC call against prioritized list of RPC nodes."""
-    last_err: Optional[Exception] = None
-    # Deduplicate while preserving order
-    seen = set()
-    unique_rpcs = [u for u in rpc_urls if u and not (u in seen or seen.add(u))]
-
-    for rpc in unique_rpcs:
-        try:
-            r = requests.post(rpc, json=payload, timeout=timeout)
-            if r.status_code == 200:
-                resp = r.json()
-                if isinstance(resp, dict) and resp.get("error"):
-                    # Check for throttling message
-                    err_msg = str(resp["error"])
-                    if "429" in err_msg or "rate" in err_msg.lower() or "limit" in err_msg.lower():
-                        continue
-                return resp
-        except Exception as e:
-            last_err = e
-            continue
-
-    if last_err:
-        raise RuntimeError(f"All Base RPC nodes failed. Last error: {last_err}")
-    raise RuntimeError("All Base RPC nodes failed to respond.")
+def get_rpc_client() -> str:
+    return BASE_RPC
 
 
-def get_native_eth_balance(wallet: str, rpc_urls: List[str] = FALLBACK_BASE_RPCS) -> float:
-    """Fetch native Base ETH balance using eth_getBalance with failover."""
-    clean_wallet = wallet.strip().lower()
+def query_eth_balance(address: str) -> float:
+    """Query native ETH balance for a given address using RPC json-rpc eth_getBalance."""
     payload = {
         "jsonrpc": "2.0",
-        "id": 1,
         "method": "eth_getBalance",
-        "params": [clean_wallet, "latest"],
+        "params": [address, "latest"],
+        "id": 1,
     }
-    try:
-        resp = _rpc_post_with_failover(payload, rpc_urls)
-        result = resp.get("result")
-        if result and result != "0x":
-            raw = int(result, 16)
-            return raw / 10**18
-    except Exception as e:
-        logger.warning(f"Error fetching native ETH balance: {e}")
+    for rpc in FALLBACK_BASE_RPCS:
+        try:
+            r = requests.post(rpc, json=payload, timeout=5)
+            if r.status_code == 200:
+                res = r.json()
+                if "result" in res and res["result"]:
+                    wei_val = int(res["result"], 16)
+                    return wei_val / 10**18
+        except Exception:
+            continue
     return 0.0
 
 
-def token_balances(
-    wallet: str,
-    tokens: List[Dict[str, Any]],
-    rpc_url: Optional[str] = None,
-    chunk: int = 50,
-    timeout: int = 20,
-) -> Dict[str, float]:
-    """Return {contract_address_lowercase: balance in token units} using RPC failover pool."""
-    rpc_pool = [rpc_url] + FALLBACK_BASE_RPCS if rpc_url else FALLBACK_BASE_RPCS
-    call_data = BALANCE_OF + wallet.strip().lower().removeprefix("0x").rjust(64, "0")
-    out: Dict[str, float] = {}
-
-    for i in range(0, len(tokens), chunk):
-        part = tokens[i : i + chunk]
-        payload = [
-            {
-                "jsonrpc": "2.0",
-                "id": j,
-                "method": "eth_call",
-                "params": [{"to": t["contract_address"], "data": call_data}, "latest"],
-            }
-            for j, t in enumerate(part)
-        ]
+def query_erc20_balance(address: str, contract_address: str, decimals: int) -> float:
+    """Query ERC-20 token balance using eth_call with balanceOf signature."""
+    padded_addr = address.lower().replace("0x", "").zfill(64)
+    data = BALANCE_OF + padded_addr
+    payload = {
+        "jsonrpc": "2.0",
+        "method": "eth_call",
+        "params": [
+            {"to": contract_address, "data": data},
+            "latest",
+        ],
+        "id": 1,
+    }
+    for rpc in FALLBACK_BASE_RPCS:
         try:
-            resp = _rpc_post_with_failover(payload, rpc_pool, timeout=timeout)
-        except Exception as e:
-            logger.error(f"Failed RPC batch: {e}")
+            r = requests.post(rpc, json=payload, timeout=5)
+            if r.status_code == 200:
+                res = r.json()
+                if "result" in res and res["result"] and res["result"] != "0x":
+                    raw_val = int(res["result"], 16)
+                    return raw_val / (10**decimals)
+        except Exception:
             continue
-
-        if isinstance(resp, list):
-            for item in resp:
-                result = item.get("result")
-                if not result or result == "0x":
-                    continue
-                try:
-                    raw = int(result, 16)
-                    if raw > 0:
-                        t = part[item["id"]]
-                        out[t["contract_address"].lower()] = raw / 10 ** int(t.get("decimals", 18))
-                except Exception:
-                    pass
-    return out
+    return 0.0
 
 
-def wallet_holdings(
-    wallet: str, supported: Set[str], rpc_url: Optional[str] = None
-) -> Dict[str, Any]:
-    """Inspect Base address for tokenized stocks, cbBTC, USDC, and native ETH."""
-    rpc_pool = [rpc_url] + FALLBACK_BASE_RPCS if rpc_url else FALLBACK_BASE_RPCS
-    tokens = list_tokenized_stocks()
+def fetch_wallet_holdings(address: str) -> Dict[str, Any]:
+    """Fetch all supported holdings for a wallet address on Base."""
+    if not is_valid_address(address):
+        raise ValueError(f"Invalid wallet address: {address}")
 
-    # Include known Base crypto tokens in the check list
-    all_tokens_to_check = tokens + KNOWN_BASE_TOKENS
-    balances = token_balances(wallet, all_tokens_to_check, rpc_url=rpc_pool[0])
+    holdings = []
+    total_value = 0.0
 
-    by_addr = {t["contract_address"].lower(): t for t in all_tokens_to_check}
-    rows: List[Dict[str, Any]] = []
+    # 1. Native ETH
+    eth_balance = query_eth_balance(address)
+    eth_price, eth_date, is_estimate = get_latest_eth_price()
+    eth_value = eth_balance * eth_price
+    if eth_balance > 0:
+        total_value += eth_value
+        holdings.append({
+            "symbol": "ETH",
+            "ticker": "ETH-USD",
+            "balance": eth_balance,
+            "price": eth_price,
+            "value": eth_value,
+            "price_date": eth_date,
+            "is_estimate": is_estimate,
+            "label": f"Price ({eth_date})" if not is_estimate else "Price (Estimated)",
+        })
 
-    for addr, amount in balances.items():
-        t = by_addr.get(addr)
-        if not t:
+    # 2. Known Base tokens (cbBTC, USDC, etc.)
+    for token in KNOWN_BASE_TOKENS:
+        bal = query_erc20_balance(address, token["contract_address"], token["decimals"])
+        if bal > 0:
+            val = bal * token["nav_price"] * token["multiplier"]
+            total_value += val
+            holdings.append({
+                "symbol": token["symbol"],
+                "ticker": token["ticker"],
+                "balance": bal,
+                "price": token["nav_price"],
+                "value": val,
+                "price_date": "Live/NAV",
+                "is_estimate": False,
+                "label": "Price",
+            })
+
+    # 3. Tokenized stocks
+    token_stocks = list_tokenized_stocks()
+    for stock in token_stocks:
+        contract_addr = stock.get("contract_address") or stock.get("address")
+        if not contract_addr:
             continue
-        symbol = t.get("symbol", "?")
-        ticker = t.get("ticker") or underlying_ticker(symbol)
-        price = float(t.get("nav_price") or 0.0)
-        multiplier = float(t.get("multiplier") or 1.0)
-        rows.append(
-            {
-                "token": symbol,
-                "ticker": ticker,
-                "address": addr,
-                "tokens": round(amount, 6),
-                "shares": round(amount * multiplier, 6),
-                "price": price,
-                "value": round(amount * price, 2),
-                "supported": ticker in supported,
-                "nav_updated": t.get("nav_price_updated_at"),
-            }
-        )
+        decimals = stock.get("decimals", 18)
+        bal = query_erc20_balance(address, contract_addr, decimals)
+        if bal > 0:
+            nav = float(stock.get("nav_price", stock.get("price", 0.0)))
+            val = bal * nav
+            total_value += val
+            sym = stock.get("symbol", "UNKNOWN")
+            holdings.append({
+                "symbol": sym,
+                "ticker": underlying_ticker(sym),
+                "balance": bal,
+                "price": nav,
+                "value": val,
+                "price_date": "NAV",
+                "is_estimate": False,
+                "label": "Price",
+            })
 
-    # Check native ETH balance
-    eth_balance = get_native_eth_balance(wallet, rpc_pool)
-    if eth_balance >= 0.0005:  # meaningful dust threshold (~$1.50)
-        eth_price = 3300.0  # reference estimate
-        rows.append(
-            {
-                "token": "ETH",
-                "ticker": "ETH-USD",
-                "address": "native-base",
-                "tokens": round(eth_balance, 6),
-                "shares": round(eth_balance, 6),
-                "price": eth_price,
-                "value": round(eth_balance * eth_price, 2),
-                "supported": "ETH-USD" in supported,
-                "nav_updated": None,
-            }
-        )
+    # Calculate weights
+    for h in holdings:
+        h["weight"] = (h["value"] / total_value) if total_value > 0 else 0.0
 
-    rows.sort(key=lambda r: r["value"], reverse=True)
-    return {"rows": rows, "n_tokens": len(all_tokens_to_check)}
-
-
-def holdings_to_portfolio(
-    rows: List[Dict[str, Any]]
-) -> Tuple[pd.DataFrame, float, List[Dict[str, Any]]]:
-    """Aggregate supported holdings by underlying ticker.
-    Returns (portfolio_df with ticker + weight %, total_value, skipped_rows)."""
-    value_by_ticker: Dict[str, float] = {}
-    skipped: List[Dict[str, Any]] = []
-
-    for r in rows:
-        if r.get("supported") and r.get("value", 0) > 0:
-            ticker = r["ticker"]
-            value_by_ticker[ticker] = value_by_ticker.get(ticker, 0.0) + r["value"]
-        else:
-            skipped.append(r)
-
-    total = sum(value_by_ticker.values())
-    if total <= 0:
-        return pd.DataFrame(columns=["ticker", "weight"]), 0.0, skipped
-
-    df = pd.DataFrame(
-        {
-            "ticker": list(value_by_ticker.keys()),
-            "weight": [v / total * 100 for v in value_by_ticker.values()],
-        }
-    )
-    return df, total, skipped
+    return {
+        "address": address,
+        "total_value": total_value,
+        "holdings": holdings,
+    }
