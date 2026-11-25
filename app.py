@@ -5,7 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from engine.data import load_prices, load_volumes
+from engine.data import FxUnavailableError, convert_prices_to_usd, load_prices, load_volumes
 from engine.env import load_env, setting
 from engine.liquidity import avg_daily_value, days_to_exit
 from engine.metrics import (concentration, portfolio_returns, volatility,
@@ -151,6 +151,11 @@ def get_volumes(tickers: tuple) -> pd.DataFrame:
 def analyze(w: pd.Series):
     """Run the full AUREN engine on one portfolio. Returns None if data is too short."""
     prices = get_prices(tuple(sorted(w.index))).dropna()
+    try:
+        prices = convert_prices_to_usd(prices).dropna()
+    except FxUnavailableError as exc:
+        st.warning(str(exc))
+        return None
     if len(prices) < 30:
         return None
     c = concentration(w)

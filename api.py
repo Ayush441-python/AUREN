@@ -13,7 +13,7 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 from starlette.staticfiles import StaticFiles
 
-from engine.data import load_prices, load_volumes
+from engine.data import FxUnavailableError, convert_prices_to_usd, load_prices, load_volumes
 from engine.env import load_env, setting
 from engine.liquidity import avg_daily_value, days_to_exit
 from engine.metrics import (
@@ -217,10 +217,12 @@ def _load_aligned_prices(tickers: list[str], period: str) -> pd.DataFrame:
     (covering weekends and single market holidays) so multi-asset portfolios
     stay aligned without dropping 90+ days of crypto returns.
     """
-    prices = load_prices(tickers, period=period)
+    effective_period = period
+    prices = load_prices(tickers, period=effective_period)
     if prices.empty and period != "1y":
         # Adaptive lookback retry
-        prices = load_prices(tickers, period="1y")
+        effective_period = "1y"
+        prices = load_prices(tickers, period=effective_period)
 
     if prices.empty:
         raise HTTPException(
@@ -232,6 +234,14 @@ def _load_aligned_prices(tickers: list[str], period: str) -> pd.DataFrame:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"No price data available for: {missing}. Try again shortly or remove them.",
+        )
+
+    try:
+        prices = convert_prices_to_usd(prices, period=effective_period)
+    except FxUnavailableError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(exc),
         )
 
     # Reconcile crypto and stock trading calendars with 3-day forward fill
