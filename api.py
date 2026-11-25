@@ -178,7 +178,9 @@ def _normalize_and_validate_weights(weights: Dict[str, float]) -> pd.Series:
     clean_weights: Dict[str, float] = {}
     for k, v in weights.items():
         key = k.strip().upper()
-        if key in {"ETH", "BTC", "SOL", "DOGE", "AVAX", "LINK", "SUI"}:
+        if key.startswith("NYSE:"):
+            key = key[5:]
+        elif key in {"ETH", "BTC", "SOL", "DOGE", "AVAX", "LINK"}:
             key = f"{key}-USD"
         clean_weights[key] = clean_weights.get(key, 0.0) + v
 
