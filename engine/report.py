@@ -16,7 +16,7 @@ SYSTEM = (
     "End with: 'Analytics only, not investment advice. Past data does not predict the future.'"
 )
 
-NUM = re.compile(r"\d+(?:,\d{3})*(?:\.\d+)?")
+NUM = re.compile(r"\d+(?:,\d{3})*(?:\.\d+)?(?:[eE][+-]?\d+\b)?")
 
 
 def clean_output(text: str) -> str:
