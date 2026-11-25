@@ -4,6 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BASE_PORTFOLIO_ANALYSIS } from "@/lib/mock";
 import { calculateRisk } from "@/lib/api";
+import {
+  loadNamedPortfolio,
+  saveNamedPortfolio,
+  slugifyPortfolioId,
+} from "@/lib/portfolioStorage";
 import { useWallet } from "@/lib/useWallet";
 import type { RiskAnalysis } from "@/lib/types";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
@@ -59,7 +64,12 @@ export function Workstation({
   const [activeTab, setActiveTab] = useState<DashboardTab>(initialTab);
   const [data, setData] = useState<RiskAnalysis>(BASE_PORTFOLIO_ANALYSIS);
   const [dataStatus, setDataStatus] = useState<DataStatus>("reference");
-  const [customPortfolioName, setCustomPortfolioName] = useState<string | null>(null);
+  const [activePortfolioId, setActivePortfolioId] = useState<string | undefined>(
+    () => (portfolioId && loadNamedPortfolio(portfolioId) ? portfolioId : undefined)
+  );
+  const [customPortfolioName, setCustomPortfolioName] = useState<string | null>(
+    () => (portfolioId ? loadNamedPortfolio(portfolioId)?.name ?? null : null)
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [builderOpen, setBuilderOpen] = useState(openBuilder);
@@ -69,23 +79,23 @@ export function Workstation({
   const wallet = useWallet();
   const portfolioName =
     customPortfolioName ??
-    (portfolioId ? `Portfolio ${portfolioId}` : "Balanced Multi-Asset");
+    (activePortfolioId ? `Portfolio ${activePortfolioId}` : "Balanced Multi-Asset");
 
   const buildHref = useCallback(
-    (tab: DashboardTab) => {
+    (tab: DashboardTab, nextPortfolioId: string | undefined = activePortfolioId) => {
       const params = new URLSearchParams();
       params.set("tab", tab);
-      if (portfolioId) params.set("portfolio", portfolioId);
+      if (nextPortfolioId) params.set("portfolio", nextPortfolioId);
       return `/dashboard?${params.toString()}`;
     },
-    [portfolioId]
+    [activePortfolioId]
   );
 
   const selectTab = useCallback(
-    (tab: DashboardTab) => {
+    (tab: DashboardTab, nextPortfolioId?: string) => {
       if (!isDashboardTab(tab)) return;
       setActiveTab(tab);
-      router.push(buildHref(tab), { scroll: false });
+      router.push(buildHref(tab, nextPortfolioId), { scroll: false });
     },
     [buildHref, router]
   );
@@ -97,7 +107,28 @@ export function Workstation({
 
   useEffect(() => {
     let active = true;
-    calculateRisk(BASE_PORTFOLIO_ANALYSIS.normalized_weights)
+    const saved = portfolioId ? loadNamedPortfolio(portfolioId) : null;
+    const initialWeights = saved
+      ? saved.weights
+      : BASE_PORTFOLIO_ANALYSIS.normalized_weights;
+
+    const frame = requestAnimationFrame(() => {
+      if (!active) return;
+      if (saved && portfolioId) {
+        setActivePortfolioId(portfolioId);
+        setCustomPortfolioName(saved.name);
+      } else {
+        setActivePortfolioId(undefined);
+        setCustomPortfolioName(null);
+        if (portfolioId) {
+          const params = new URLSearchParams();
+          params.set("tab", initialTab);
+          router.replace(`/dashboard?${params.toString()}`, { scroll: false });
+        }
+      }
+    });
+
+    calculateRisk(initialWeights)
       .then((live) => {
         if (!active || !live || typeof live.score !== "number") return;
         setData(live);
@@ -119,13 +150,17 @@ export function Workstation({
       });
     return () => {
       active = false;
+      cancelAnimationFrame(frame);
     };
-  }, []);
+  }, [initialTab, portfolioId, router]);
 
   const handleApplyPortfolio = useCallback(
     async (weights: Record<string, number>, name: string) => {
       const previousStatus = dataStatus;
+      const nextId = activePortfolioId ?? slugifyPortfolioId(name);
       setCustomPortfolioName(name);
+      setActivePortfolioId(nextId);
+      saveNamedPortfolio(nextId, name, weights);
       setLoading(true);
       setError(null);
       setSimulation(null);
@@ -136,7 +171,7 @@ export function Workstation({
         }
         setData(live);
         setDataStatus("live");
-        selectTab("overview");
+        selectTab("overview", nextId);
       } catch (applyError) {
         setDataStatus("stale");
         setError(
@@ -151,7 +186,7 @@ export function Workstation({
         setLoading(false);
       }
     },
-    [dataStatus, selectTab]
+    [activePortfolioId, dataStatus, selectTab]
   );
 
   const handleSimulate = useCallback(
@@ -194,7 +229,7 @@ export function Workstation({
         activeTab={activeTab}
         onSelectTab={selectTab}
         portfolioName={portfolioName}
-        portfolioId={portfolioId}
+        portfolioId={activePortfolioId}
         dataStatus={dataStatus}
         loading={loading}
         error={error}
