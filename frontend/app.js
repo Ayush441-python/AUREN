@@ -594,10 +594,18 @@ function renderWhatIf(A, B) {
   $("wf-body").innerHTML = rows.map(([l, a, b]) => `<tr><td><strong>${l}</strong></td><td>${esc(a)}</td><td class="gold">${esc(b)}</td></tr>`).join("");
   rulesList("wf-cur-rules", A.hits); rulesList("wf-alt-rules", B.hits);
 
-  const dates = A.dates || [], step = Math.max(1, Math.floor(dates.length / 250));
-  chart("wfChart", { type: "line", data: { labels: thin(dates, step), datasets: [
-    { label: "Current", data: thin(A.drawdown_series || [], step).map((v) => v * 100), borderColor: "#7A7F88", borderWidth: 2, pointRadius: 0 },
-    { label: "What-if", data: thin(B.drawdown_series || [], step).map((v) => v * 100), borderColor: C.gold, borderWidth: 2.5, pointRadius: 0 }] },
+  const currentDates = A.dates || [], alternativeDates = B.dates || [];
+  const labels = [...new Set([...currentDates, ...alternativeDates])].sort();
+  const drawdownByDate = (dates, values = []) => {
+    const valuesByDate = new Map(dates.map((date, i) => [date, values[i]]));
+    return labels.map((date) => {
+      const value = valuesByDate.get(date);
+      return Number.isFinite(value) ? value * 100 : null;
+    });
+  };
+  chart("wfChart", { type: "line", data: { labels, datasets: [
+    { label: "Current", data: drawdownByDate(currentDates, A.drawdown_series), borderColor: "#7A7F88", borderWidth: 2, pointRadius: 0, spanGaps: true },
+    { label: "What-if", data: drawdownByDate(alternativeDates, B.drawdown_series), borderColor: C.gold, borderWidth: 2.5, pointRadius: 0, spanGaps: true }] },
     options: lineOptions({ legend: true, pct: true }) });
 }
 
