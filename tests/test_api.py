@@ -1,5 +1,9 @@
+from unittest.mock import patch
+
+import pandas as pd
 from fastapi.testclient import TestClient
-from api import app
+
+from api import PortfolioRequest, app, compute_risk
 
 client = TestClient(app)
 
@@ -107,3 +111,26 @@ def test_wallet_endpoint_shape(monkeypatch):
     assert data["portfolio"] == {"NVDA": 1.0}
     assert data["holdings"][0]["ticker"] == "NVDA"
     assert data["total_value"] == 200.0
+
+
+def test_sui_equity_and_crypto_remain_distinct():
+    history = pd.DataFrame(
+        {"SUI": [100.0] * 31, "SUI-USD": [10.0] * 30 + [6.0]},
+        index=pd.bdate_range("2026-09-01", periods=31),
+    )
+    with patch("api.load_prices", side_effect=lambda tickers, period: history[tickers]) as prices:
+        eq = compute_risk(PortfolioRequest(weights={"SUI": 1}))
+        assert prices.call_args.args[0] == ["SUI"]
+        assert eq["normalized_weights"] == {"SUI": 1.0}
+        assert eq["price_series"]["Portfolio"][-1] == 100.0
+
+        mixed = compute_risk(PortfolioRequest(weights={"SUI": 50, "SUI-USD": 50}))
+        assert prices.call_args.args[0] == ["SUI", "SUI-USD"]
+        assert mixed["normalized_weights"] == {"SUI": 0.5, "SUI-USD": 0.5}
+        assert mixed["price_series"]["Portfolio"][-1] == 80.0
+        assert mixed["concentration"]["hhi"] == 0.5
+
+        crypto = compute_risk(PortfolioRequest(weights={"SUI-USD": 1}))
+        assert prices.call_args.args[0] == ["SUI-USD"]
+        assert crypto["normalized_weights"] == {"SUI-USD": 1.0}
+        assert crypto["price_series"]["Portfolio"][-1] == 60.0
