@@ -107,3 +107,35 @@ def test_wallet_endpoint_shape(monkeypatch):
     assert data["portfolio"] == {"NVDA": 1.0}
     assert data["holdings"][0]["ticker"] == "NVDA"
     assert data["total_value"] == 200.0
+
+
+def test_risk_stablecoin_usd_pairs_classified_as_cash(monkeypatch):
+    """Regression test for #297: *-USD stablecoin pairs must be Cash & Stablecoins."""
+    import numpy as np
+    import pandas as pd
+    import api as api_module
+
+    idx = pd.date_range("2025-01-01", periods=90, freq="D")
+    rng = np.random.default_rng(42)
+    frame = pd.DataFrame({
+        "PYUSD-USD": 1.0 + rng.normal(0, 0.0001, len(idx)),
+        "USDC-USD": 1.0 + rng.normal(0, 0.0001, len(idx)),
+        "DOGE-USD": 0.2 * (1 + rng.normal(0, 0.02, len(idx))).cumprod(),
+    }, index=idx)
+    monkeypatch.setattr(api_module, "load_prices", lambda tickers, period="2y": frame[list(tickers)])
+
+    # 100% PYUSD-USD: Cash & Stablecoins, zero stress in all 5 scenarios
+    res_cash = client.post("/risk", json={"weights": {"PYUSD-USD": 100}, "period": "1y"})
+    assert res_cash.status_code == 200
+    data_cash = res_cash.json()
+    assert data_cash["sector_exposure"] == {"Cash & Stablecoins": 1.0}
+    assert all(v == 0.0 for v in data_cash["stress"].values())
+
+    # 50% DOGE-USD / 50% USDC-USD: split exposure, half crypto stress, no >50% sector penalty
+    res_mix = client.post("/risk", json={"weights": {"DOGE-USD": 50, "USDC-USD": 50}, "period": "1y"})
+    assert res_mix.status_code == 200
+    data_mix = res_mix.json()
+    assert data_mix["sector_exposure"] == {"Crypto": 0.5, "Cash & Stablecoins": 0.5}
+    assert data_mix["stress"]["Crypto crash 40%"] == -0.2
+    assert data_mix["stress"]["Broad selloff"] == -0.15
+    assert not any("sits in one sector" in r for r in data_mix["reasons"])

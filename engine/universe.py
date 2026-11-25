@@ -175,6 +175,13 @@ if _mismatch:
     raise ValueError(f"Tickers missing from SECTORS or GROUPS: {sorted(_mismatch)}")
 
 
+STABLECOIN_SYMBOLS = frozenset({
+    "USDC", "USDT", "DAI", "USD", "BUSD", "PYUSD",
+    "FDUSD", "TUSD", "USDP", "GUSD", "LUSD", "FRAX",
+    "USDE", "USDS", "RLUSD", "EURC",
+})
+
+
 def classify_and_register_ticker(ticker: str) -> Tuple[str, str]:
     """Dynamically classify and register any new ticker on the fly."""
     t = ticker.strip().upper()
@@ -185,12 +192,13 @@ def classify_and_register_ticker(ticker: str) -> Tuple[str, str]:
     sector = "General Equities"
     group = "General Equities"
 
-    if t.endswith("-USD") or t in {"BTC", "ETH", "SOL", "DOGE", "AVAX", "CBBTC"}:
-        sector = "Crypto"
-        group = "Crypto"
-    elif t in {"USDC", "USDT", "DAI", "USD", "BUSD"}:
+    base = t[:-4] if t.endswith("-USD") else t
+    if t in STABLECOIN_SYMBOLS or base in STABLECOIN_SYMBOLS:
         sector = "Stablecoin"
         group = "Cash & Stablecoins"
+    elif t.endswith("-USD") or t in {"BTC", "ETH", "SOL", "DOGE", "AVAX", "CBBTC"}:
+        sector = "Crypto"
+        group = "Crypto"
     elif t in {"SPY", "QQQ", "IWM", "DIA", "VOO", "VTI", "IVV"}:
         sector = "Index ETF"
         group = "Broad Market ETFs"

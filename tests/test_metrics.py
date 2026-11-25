@@ -9,7 +9,8 @@ from engine.metrics import (
     sector_exposure,
 )
 from engine.score import risk_score
-from engine.stress import stress
+from engine.stress import SCENARIOS, stress
+from engine.universe import classify_and_register_ticker
 
 
 def test_equal_weights_effective_assets():
@@ -73,3 +74,57 @@ def test_stress_scenario():
     w = pd.Series([0.5, 0.5], index=["NVDA", "GLD"])
     shocks = {"Big Tech": -0.20}
     assert stress(w, shocks) == pytest.approx(-0.10)
+
+
+@pytest.mark.parametrize(
+    "ticker",
+    [
+        "USDC-USD",
+        "PYUSD-USD",
+        "USDT-USD",
+        "DAI-USD",
+        "FDUSD-USD",
+        "TUSD-USD",
+        "USDP-USD",
+        "GUSD-USD",
+        "LUSD-USD",
+        "BUSD-USD",
+        "FRAX-USD",
+        "USDE-USD",
+        "USDS-USD",
+        "RLUSD-USD",
+        "EURC-USD",
+    ],
+)
+def test_stablecoin_usd_pairs_classified_as_cash_not_crypto(ticker):
+    sector, group = classify_and_register_ticker(ticker)
+    assert sector == "Stablecoin"
+    assert group == "Cash & Stablecoins"
+
+
+def test_non_stablecoin_usd_pair_stays_crypto():
+    sector, group = classify_and_register_ticker("XRP-USD")
+    assert sector == "Crypto"
+    assert group == "Crypto"
+
+
+def test_pure_stablecoin_pair_has_zero_stress_across_all_scenarios():
+    classify_and_register_ticker("PYUSD-USD")
+    w = pd.Series([1.0], index=["PYUSD-USD"])
+    exp = sector_exposure(w)
+    assert exp.to_dict() == {"Cash & Stablecoins": pytest.approx(1.0)}
+    for name, shocks in SCENARIOS.items():
+        assert stress(w, shocks) == pytest.approx(0.0), f"Non-zero stress for {name}"
+
+
+def test_half_crypto_half_stablecoin_pair_exposure_and_stress():
+    classify_and_register_ticker("USDC-USD")
+    w = pd.Series([0.5, 0.5], index=["DOGE-USD", "USDC-USD"])
+    exp = sector_exposure(w)
+    assert exp["Crypto"] == pytest.approx(0.5)
+    assert exp["Cash & Stablecoins"] == pytest.approx(0.5)
+    assert stress(w, SCENARIOS["Crypto crash 40%"]) == pytest.approx(-0.20)
+    assert stress(w, SCENARIOS["Broad selloff"]) == pytest.approx(-0.15)
+    # 50% max sector exposure must not trigger the > 50% sector concentration penalty
+    _, _, hits = risk_score(concentration(w), 0.10, -0.05, [], float(exp.max()))
+    assert not any("sits in one sector" in why for _, why in hits)
