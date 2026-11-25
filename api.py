@@ -210,6 +210,24 @@ def _normalize_and_validate_weights(weights: Dict[str, float]) -> pd.Series:
     return w / w.sum()
 
 
+def _restrict_retry_window(prices: pd.DataFrame, period: str) -> pd.DataFrame:
+    """Bound a fallback download by the requested period and its latest quote."""
+    if prices.empty or period == "max":
+        return prices
+
+    latest = prices.dropna(how="all").index.max()
+    if pd.isna(latest):
+        return prices.iloc[:0]
+
+    if period == "ytd":
+        start = latest.normalize().replace(month=1, day=1)
+    elif period.endswith("mo"):
+        start = latest - pd.DateOffset(months=int(period[:-2]))
+    else:
+        start = latest - pd.DateOffset(years=int(period[:-1]))
+    return prices.loc[(prices.index >= start) & (prices.index <= latest)]
+
+
 def _load_aligned_prices(tickers: list[str], period: str) -> pd.DataFrame:
     """Prices for exactly `tickers`, reconciled across stock & crypto trading schedules.
 
@@ -219,8 +237,7 @@ def _load_aligned_prices(tickers: list[str], period: str) -> pd.DataFrame:
     """
     prices = load_prices(tickers, period=period)
     if prices.empty and period != "1y":
-        # Adaptive lookback retry
-        prices = load_prices(tickers, period="1y")
+        prices = _restrict_retry_window(load_prices(tickers, period="1y"), period)
 
     if prices.empty:
         raise HTTPException(
