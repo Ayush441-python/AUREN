@@ -114,6 +114,10 @@ class LiquidityRequest(BaseModel):
         description="Max acceptable daily volume participation rate (default 10%)",
     )
     period: str = Field(default="1y", pattern=PERIOD_PATTERN, description="Lookback window for volume data")
+    fx_rates: Optional[Dict[str, float]] = Field(
+        default=None,
+        description="Optional explicit FX conversion rates to USD (e.g. {'JPY': 0.006667})",
+    )
 
 
 class AIReportRequest(BaseModel):
@@ -361,6 +365,30 @@ def compute_risk(payload: PortfolioRequest):
     return _json_safe(result)
 
 
+_currency_cache: dict[str, str] = {}
+
+
+def _get_ticker_currency(ticker: str) -> str:
+    """Retrieve quote currency for a ticker (defaults to USD for crypto -USD and standard US assets)."""
+    if ticker in _currency_cache:
+        return _currency_cache[ticker]
+    if ticker.endswith("-USD") or ticker in {"USDC", "USDT", "DAI", "USD", "BUSD"}:
+        _currency_cache[ticker] = "USD"
+        return "USD"
+    try:
+        import yfinance as yf
+        info = yf.Ticker(ticker).info
+        curr = info.get("currency")
+        if curr and isinstance(curr, str):
+            c_str = curr.strip().upper()
+            _currency_cache[ticker] = c_str
+            return c_str
+    except Exception:
+        pass
+    _currency_cache[ticker] = "USD"
+    return "USD"
+
+
 @app.post("/liquidity", tags=["Liquidity Analytics"])
 def compute_liquidity(payload: LiquidityRequest):
     """Calculate liquidity analysis: average daily trading value and estimated days to exit positions."""
@@ -376,7 +404,46 @@ def compute_liquidity(payload: LiquidityRequest):
             detail="Failed to load price or volume data for liquidity calculations",
         )
 
-    adv = avg_daily_value(prices, volumes)
+    currencies = {t: _get_ticker_currency(t) for t in tickers}
+    fx_rates: dict = {}
+    if payload.fx_rates:
+        for k, v in payload.fx_rates.items():
+            if v and v > 0:
+                fx_rates[k.upper()] = float(v)
+
+    non_usd = {curr for curr in currencies.values() if curr != "USD" and curr not in fx_rates}
+    if non_usd:
+        fx_tickers = []
+        for curr in non_usd:
+            fx_tickers.extend([f"{curr}USD=X", f"USD{curr}=X"])
+        try:
+            fx_prices = load_prices(fx_tickers, period=payload.period)
+        except Exception:
+            fx_prices = pd.DataFrame()
+
+        for curr in non_usd:
+            direct_pair = f"{curr}USD=X"
+            inverse_pair = f"USD{curr}=X"
+            if not fx_prices.empty and direct_pair in fx_prices.columns and not fx_prices[direct_pair].dropna().empty:
+                fx_rates[curr] = fx_prices[direct_pair]
+            elif not fx_prices.empty and inverse_pair in fx_prices.columns and not fx_prices[inverse_pair].dropna().empty:
+                fx_rates[curr] = 1.0 / fx_prices[inverse_pair]
+            else:
+                try:
+                    import yfinance as yf
+                    t_dir = yf.Ticker(direct_pair).info
+                    p = t_dir.get("regularMarketPrice") or t_dir.get("previousClose")
+                    if p and p > 0:
+                        fx_rates[curr] = float(p)
+                    else:
+                        t_inv = yf.Ticker(inverse_pair).info
+                        p_inv = t_inv.get("regularMarketPrice") or t_inv.get("previousClose")
+                        if p_inv and p_inv > 0:
+                            fx_rates[curr] = 1.0 / float(p_inv)
+                except Exception:
+                    pass
+
+    adv = avg_daily_value(prices, volumes, currencies=currencies, fx_rates=fx_rates)
     dollar_holdings = pd.Series({t: float(payload.portfolio_value * w[t]) for t in tickers}, dtype=float)
     exit_days = days_to_exit(dollar_holdings, adv, participation=payload.adv_participation)
 
