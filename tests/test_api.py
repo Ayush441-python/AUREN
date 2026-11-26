@@ -107,3 +107,34 @@ def test_wallet_endpoint_shape(monkeypatch):
     assert data["portfolio"] == {"NVDA": 1.0}
     assert data["holdings"][0]["ticker"] == "NVDA"
     assert data["total_value"] == 200.0
+
+
+def test_liquidity_exit_days_precision_preserves_over_cap_boundary(monkeypatch):
+    """Verify days_to_exit preserves calculated float precision across capacity boundaries."""
+    import numpy as np
+    import pandas as pd
+    import pytest
+    import backend.app.main as api_module
+
+    prices = pd.DataFrame({"MSFT": [100.0] * 30, "AAPL": [100.0] * 30})
+    volumes = pd.DataFrame({"MSFT": [100_000] * 30, "AAPL": [100_000] * 30})
+    monkeypatch.setattr(api_module, "load_prices", lambda tickers, period="2y": prices[list(tickers)])
+    monkeypatch.setattr(api_module, "load_volumes", lambda tickers, period="2y": volumes[list(tickers)])
+
+    for w in ({"MSFT": 499, "AAPL": 501}, {"MSFT": 49999, "AAPL": 50001}, {"AAPL": 50001, "MSFT": 49999}, {"MSFT": 4_999_999, "AAPL": 5_000_001}):
+        res = client.post("/liquidity", json={"portfolio_value": 2_000_000, "weights": w, "adv_participation": 0.1})
+        assert res.status_code == 200
+        d = res.json()
+        by_t = {a["ticker"]: a["days_to_exit"] for a in d["assets"]}
+        assert by_t["MSFT"] < 1.0 < by_t["AAPL"]
+        assert d["max_days_to_exit"] == by_t["AAPL"] > 1.0
+
+    # Exact 1.0 tie & missing NaN volume fallback
+    res_eq = client.post("/liquidity", json={"portfolio_value": 2_000_000, "weights": {"MSFT": 50, "AAPL": 50}, "adv_participation": 0.1}).json()
+    assert res_eq["max_days_to_exit"] == pytest.approx(1.0)
+
+    volumes_nan = pd.DataFrame({"MSFT": [np.nan] * 30, "AAPL": [np.nan] * 30})
+    monkeypatch.setattr(api_module, "load_volumes", lambda tickers, period="2y": volumes_nan[list(tickers)])
+    res_nan = client.post("/liquidity", json={"portfolio_value": 100_000, "weights": {"MSFT": 50, "AAPL": 50}, "adv_participation": 0.1}).json()
+    assert all(a["days_to_exit"] is None for a in res_nan["assets"])
+    assert res_nan["max_days_to_exit"] == 0.0

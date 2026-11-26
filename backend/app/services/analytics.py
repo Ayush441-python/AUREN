@@ -1,3 +1,4 @@
+import math
 import re
 import sys
 from typing import Dict, List
@@ -223,8 +224,8 @@ def compute_portfolio_liquidity(
             "ticker": t,
             "weight": round(float(w[t]), 4),
             "holding_value": round(dollar_holdings[t], 2),
-            "adv": round(adv_t, 2) if finite(adv_t) else None,
-            "days_to_exit": round(days_t, 2) if finite(days_t) else None,
+            "adv": round(adv_t, 2) if math.isfinite(adv_t) else None,
+            "days_to_exit": days_t if math.isfinite(days_t) else None,
         })
 
     max_days = max((r["days_to_exit"] for r in results if r["days_to_exit"] is not None), default=0.0)
