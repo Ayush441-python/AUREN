@@ -3,12 +3,24 @@
 import { BookOpen, Braces, ShieldCheck, Terminal } from "lucide-react";
 import { formatNumber, formatPercent, formatSignedPercent } from "@/lib/format";
 import type { RiskAnalysis } from "@/lib/types";
+import type { DataStatus } from "@/components/dashboard/Workstation";
 import { Panel, PanelHeader } from "@/components/ui/Panel";
 import { CodeBlock } from "@/components/ui/CodeBlock";
 import { RiskBadge } from "@/components/ui/RiskBadge";
 
 interface DocsProofViewProps {
   data?: RiskAnalysis;
+  status?: DataStatus;
+}
+
+const snapshotTitleByStatus: Record<DataStatus, string> = {
+  reference: "Reference snapshot",
+  live: "Live snapshot",
+  stale: "Previous snapshot",
+};
+
+export function getSnapshotTitle(status?: DataStatus): string {
+  return status ? (snapshotTitleByStatus[status] ?? "Analysis snapshot") : "Analysis snapshot";
 }
 
 const apiBase = process.env.NEXT_PUBLIC_API_URL || "https://auren-api-8yrq.onrender.com";
@@ -137,7 +149,9 @@ const endpoints = [
   },
 ];
 
-export function DocsProofView({ data }: DocsProofViewProps) {
+export function DocsProofView({ data, status }: DocsProofViewProps) {
+  const snapshotTitle = getSnapshotTitle(status);
+
   return (
     <div className="space-y-7">
       <header className="border-b border-line pb-6">
@@ -157,7 +171,7 @@ export function DocsProofView({ data }: DocsProofViewProps) {
         <Panel>
           <PanelHeader
             eyebrow="Current analysis"
-            title="Live snapshot"
+            title={snapshotTitle}
             action={<RiskBadge level={data.level} score={data.score} />}
           />
           <div className="grid grid-cols-1 gap-px bg-line sm:grid-cols-2 xl:grid-cols-4">
