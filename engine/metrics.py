@@ -28,9 +28,18 @@ def volatility(pr: pd.Series) -> float:
     return float(pr.std() * np.sqrt(252))  # annualised
 
 
-def max_drawdown(pr: pd.Series) -> float:
+def drawdown_series(pr: pd.Series) -> pd.Series:
+    """Running drawdown from an initial capital peak of 1.0."""
+    if pr.empty:
+        return pd.Series(dtype=float, index=pr.index)
     value = (1 + pr).cumprod()
-    return float((value / value.cummax() - 1).min())
+    peak = value.cummax().clip(lower=1.0)
+    return value / peak - 1
+
+
+def max_drawdown(pr: pd.Series) -> float:
+    """Maximum peak-to-trough drawdown including the initial 1.0 capital peak."""
+    return float(drawdown_series(pr).min())
 
 
 def correlation(prices: pd.DataFrame, tickers) -> pd.DataFrame:

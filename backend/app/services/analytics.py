@@ -10,6 +10,7 @@ from engine.liquidity import avg_daily_value, days_to_exit
 from engine.metrics import (
     concentration,
     correlation,
+    drawdown_series,
     high_pairs,
     max_drawdown,
     portfolio_returns,
@@ -147,7 +148,7 @@ def compute_portfolio_risk(weights: Dict[str, float], period: str = "2y") -> dic
 
     value = (1 + pr).cumprod()
     cum_ret = pd.concat([pd.Series([1.0], index=[start]), value]) * 100
-    dd = value / value.cummax() - 1
+    dd = drawdown_series(pr)
     dd_series = pd.concat([pd.Series([0.0], index=[start]), dd])
 
     dates = [d.strftime("%Y-%m-%d") for d in prices.index]
