@@ -9,6 +9,12 @@ export function formatPercent(val: number | undefined | null, decimals = 1): str
   return `${(val * 100).toFixed(decimals)}%`;
 }
 
+export function formatBoundaryPercent(val: number | undefined | null, isOver: boolean, thresholdPct = "30.0"): string {
+  if (val === undefined || val === null || isNaN(val)) return "—";
+  const pct = val * 100;
+  return isOver && pct.toFixed(1) === thresholdPct ? `${pct.toFixed(4).replace(/\.?0+$/, "")}%` : formatPercent(val);
+}
+
 export function formatSignedPercent(val: number | undefined | null, decimals = 1): string {
   if (val === undefined || val === null || isNaN(val)) return "—";
   const pct = val * 100;

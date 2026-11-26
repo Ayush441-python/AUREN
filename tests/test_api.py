@@ -107,3 +107,32 @@ def test_wallet_endpoint_shape(monkeypatch):
     assert data["portfolio"] == {"NVDA": 1.0}
     assert data["holdings"][0]["ticker"] == "NVDA"
     assert data["total_value"] == 200.0
+
+
+def test_concentration_30pct_rule_boundary_agreement(monkeypatch):
+    import numpy as np
+    import pandas as pd
+    import pytest
+    import backend.app.main as api_module
+
+    tickers = ["NVDA", "COST", "MSFT", "XOM"]
+    idx = pd.date_range("2026-01-01", periods=30, freq="B")
+    prices = pd.DataFrame({t: 100.0 * (1 + 0.001 * np.arange(30)) for t in tickers}, index=idx)
+    monkeypatch.setattr(api_module, "load_prices", lambda ts, period="2y": prices[list(ts)])
+
+    for w in ({"NVDA": 30.0, "COST": 24.0, "MSFT": 23.0, "XOM": 23.0},
+              {"NVDA": 29.9999, "COST": 24.0, "MSFT": 23.0, "XOM": 23.0001},
+              {"NVDA": 30.0, "COST": 30.0, "MSFT": 20.0, "XOM": 20.0}):
+        res = client.post("/risk", json={"weights": w}).json()
+        assert res["concentration"]["exceeds_30pct"] is False
+        assert not any(n == 20 and "over 30%" in why for n, why in res["hits"])
+
+    for w, expected in (({"NVDA": 30.0001, "COST": 24.0, "MSFT": 23.0, "XOM": 22.9999}, 0.300001),
+                        ({"NVDA": 30.004, "COST": 24.0, "MSFT": 23.0, "XOM": 22.996}, 0.30004),
+                        ({"NVDA": 30.01, "COST": 24.0, "MSFT": 23.0, "XOM": 22.99}, 0.3001),
+                        ({"NVDA": 30.005, "COST": 30.005, "MSFT": 20.0, "XOM": 19.99}, 0.30005),
+                        ({"NVDA": 100.0}, 1.0)):
+        res = client.post("/risk", json={"weights": w}).json()
+        assert res["concentration"]["exceeds_30pct"] is True
+        assert any(n == 20 and "over 30%" in why for n, why in res["hits"])
+        assert res["concentration"]["top_weight"] == pytest.approx(expected, rel=1e-5)

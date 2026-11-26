@@ -10,7 +10,7 @@ import {
   Layers,
   Activity,
 } from "lucide-react";
-import { formatNumber, formatPercent, formatSignedPercent } from "@/lib/format";
+import { formatBoundaryPercent, formatNumber, formatPercent, formatSignedPercent } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import type { RiskAnalysis } from "@/lib/types";
 import type { DataStatus, DashboardTab } from "@/components/dashboard/Workstation";
@@ -110,7 +110,7 @@ export function OverviewView({
           </div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="font-mono text-2xl font-bold tabular-nums text-primary">
-              {formatPercent(data.concentration.top_weight)}
+              {formatBoundaryPercent(data.concentration.top_weight, data.concentration.exceeds_30pct ?? data.concentration.top_weight > 0.3)}
             </span>
             <span className="font-mono text-xs font-semibold text-gold">
               {data.concentration.top_asset}
