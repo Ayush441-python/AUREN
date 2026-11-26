@@ -1,8 +1,8 @@
 import { RiskAnalysis } from "./types";
 
 export const BASE_PORTFOLIO_ANALYSIS: RiskAnalysis = {
-  score: 64,
-  level: "Medium",
+  score: 65,
+  level: "High",
   normalized_weights: {
     AAPL: 0.35,
     NVDA: 0.25,
@@ -11,16 +11,16 @@ export const BASE_PORTFOLIO_ANALYSIS: RiskAnalysis = {
     USDC: 0.05,
   },
   reasons: [
-    "Top holding AAPL represents 35.0% of portfolio, exceeding the 25% single-asset safety benchmark.",
-    "Combined Technology exposure (AAPL + NVDA) is 60.0%, creating sector concentration vulnerability.",
-    "Crypto asset correlation (ETH-USD and BTC-USD: +0.84) limits diversification benefit during digital asset drawdowns.",
-    "Portfolio historical Max Drawdown reached -38.4% during 2022 market contraction.",
+    "Largest holding is 35% (over 30%)",
+    "Worst past fall was -38% (deeper than -30%)",
+    "2 pairs of assets move closely together",
+    "60% sits in one sector",
   ],
   hits: [
-    [15, "Single-asset concentration: AAPL exceeds 25%"],
-    [20, "Tech sector concentration exceeds 50%"],
-    [18, "Crypto allocation exceeds 30% combined weight"],
-    [11, "Elevated annual volatility (28.4%)"],
+    [20, "Largest holding is 35% (over 30%)"],
+    [15, "Worst past fall was -38% (deeper than -30%)"],
+    [15, "2 pairs of assets move closely together"],
+    [15, "60% sits in one sector"],
   ],
   dates: [
     "2023-01-03", "2023-03-15", "2023-06-01", "2023-08-15",
@@ -49,25 +49,26 @@ export const BASE_PORTFOLIO_ANALYSIS: RiskAnalysis = {
     top_asset: "AAPL",
     top_weight: 0.35,
     top3_weight: 0.80,
-    hhi: 0.255,
-    effective_assets: 3.92,
+    hhi: 0.25,
+    effective_assets: 4.0,
   },
   volatility: 0.284,
   max_drawdown: -0.384,
   sector_exposure: {
-    Technology: 0.60,
+    "Big Tech": 0.60,
     Crypto: 0.35,
-    Stablecoin: 0.05,
+    "Cash & Stablecoins": 0.05,
   },
   correlated_pairs: [
-    ["ETH-USD", "BTC-USD", 0.84],
     ["AAPL", "NVDA", 0.72],
+    ["ETH-USD", "BTC-USD", 0.84],
   ],
   stress: {
-    "Broad Selloff": -0.142,
-    "Tech Crash": -0.198,
-    "Crypto Winter": -0.148,
-    "Rates Shock": -0.089,
+    "Big Tech falls 20%": -0.12,
+    "Chip selloff (semis fall 25%)": -0.0625,
+    "NVDA falls 15%": -0.0375,
+    "Crypto crash 40%": -0.14,
+    "Broad selloff": -0.195,
   },
   worst_historical_periods: {
     worst_day: -0.072,
