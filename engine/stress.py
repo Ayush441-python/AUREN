@@ -8,7 +8,9 @@ SCENARIOS = {
     "Big Tech falls 20%": {"Big Tech": -0.20},
     "Chip selloff (semis fall 25%)": {"Semiconductors": -0.25,
                                       "Semiconductor Equipment": -0.25,
-                                      "Memory Chips": -0.25},
+                                      "Memory Chips": -0.25,
+                                      "Software & Semiconductors": -0.25,
+                                      "AI & Semiconductors": -0.25},
     "NVDA falls 15%": {"NVDA": -0.15},
     "Crypto crash 40%": {"Crypto": -0.40},
     "Broad selloff": {
@@ -16,7 +18,7 @@ SCENARIOS = {
         "Software & Cybersecurity": -0.15, "Internet & Communication": -0.10,
         "Consumer & Retail": -0.10, "Healthcare & Biotechnology": -0.08,
         "Industrial & Energy": -0.08, "Financials": -0.10,
-        "Crypto": -0.30, "Gold": 0.03,
+        "Crypto": -0.30, "Gold & Commodities": 0.03,
     },
 }
 
