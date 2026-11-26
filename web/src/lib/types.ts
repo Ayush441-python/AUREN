@@ -48,6 +48,7 @@ export interface LiquidityAnalysis {
   portfolio_value: number;
   adv_participation: number;
   max_days_to_exit: number;
+  has_volume_data?: boolean;
   assets: LiquidityAsset[];
 }
 

@@ -107,3 +107,30 @@ def test_wallet_endpoint_shape(monkeypatch):
     assert data["portfolio"] == {"NVDA": 1.0}
     assert data["holdings"][0]["ticker"] == "NVDA"
     assert data["total_value"] == 200.0
+
+
+def test_liquidity_boundary_and_missing_volume_flag(monkeypatch):
+    """Verify exact 1.0 day boundary precision and missing volume detection in /liquidity."""
+    import numpy as np
+    import pandas as pd
+    import backend.app.main as api_module
+
+    prices = pd.DataFrame({"MSFT": [20.0] * 30, "AAPL": [20.0] * 30})
+    volumes = pd.DataFrame({"MSFT": [500_000.0] * 30, "AAPL": [500_000.0] * 30})
+    monkeypatch.setattr(api_module, "load_prices", lambda ts, period="1y": prices[list(ts)])
+    monkeypatch.setattr(api_module, "load_volumes", lambda ts, period="1y": volumes[list(ts)])
+
+    res_exact = client.post("/liquidity", json={"portfolio_value": 2_000_000, "weights": {"MSFT": 50.0, "AAPL": 50.0}, "adv_participation": 0.10}).json()
+    assert res_exact["has_volume_data"] is True
+    assert res_exact["max_days_to_exit"] == 1.0
+
+    res_prec = client.post("/liquidity", json={"portfolio_value": 2_000_000, "weights": {"MSFT": 49.999, "AAPL": 50.001}, "adv_participation": 0.10}).json()
+    by_t = {a["ticker"]: a["days_to_exit"] for a in res_prec["assets"]}
+    assert by_t["MSFT"] < 1.0 < by_t["AAPL"]
+    assert res_prec["max_days_to_exit"] > 1.0
+
+    volumes_nan = pd.DataFrame({"MSFT": [np.nan] * 30, "AAPL": [np.nan] * 30})
+    monkeypatch.setattr(api_module, "load_volumes", lambda ts, period="1y": volumes_nan[list(ts)])
+    res_missing = client.post("/liquidity", json={"portfolio_value": 100_000, "weights": {"MSFT": 50.0, "AAPL": 50.0}, "adv_participation": 0.10}).json()
+    assert res_missing["has_volume_data"] is False
+    assert all(a["adv"] is None and a["days_to_exit"] is None for a in res_missing["assets"])
