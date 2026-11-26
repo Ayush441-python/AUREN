@@ -172,10 +172,11 @@ def compute_portfolio_risk(weights: Dict[str, float], period: str = "2y") -> dic
         "correlation_matrix": corr_matrix,
         "concentration": {
             "top_asset": conc["top_asset"],
-            "top_weight": round(conc["top_weight"], 4),
+            "top_weight": round(conc["top_weight"], 6),
             "top3_weight": round(conc["top3_weight"], 4),
             "hhi": round(conc["hhi"], 4),
             "effective_assets": round(conc["effective_assets"], 2),
+            "exceeds_30pct": conc.get("exceeds_30pct", bool(conc["top_weight"] > 0.30)),
         },
         "volatility": round(vol, 4),
         "max_drawdown": round(mdd, 4),

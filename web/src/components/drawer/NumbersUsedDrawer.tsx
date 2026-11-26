@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Calculator, Check, Copy, ShieldCheck, X } from "lucide-react";
-import { formatNumber, formatPercent, formatSignedPercent } from "@/lib/format";
+import { formatBoundaryPercent, formatNumber, formatPercent, formatSignedPercent } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import type { RiskAnalysis } from "@/lib/types";
 import { Button } from "@/components/ui/Button";
@@ -86,10 +86,10 @@ export function NumbersUsedDrawer({ isOpen, onClose, data }: NumbersUsedDrawerPr
     {
       label: "Largest holding",
       value: data.concentration.top_asset,
-      measured: formatPercent(data.concentration.top_weight),
+      measured: formatBoundaryPercent(data.concentration.top_weight, data.concentration.exceeds_30pct ?? data.concentration.top_weight > 0.3),
       condition: "> 30%",
       points: 20,
-      triggered: data.concentration.top_weight > 0.3,
+      triggered: data.concentration.exceeds_30pct ?? data.concentration.top_weight > 0.3,
     },
     {
       label: "Effective assets",

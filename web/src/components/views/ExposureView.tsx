@@ -1,7 +1,7 @@
 "use client";
 
 import { Layers3, PieChart } from "lucide-react";
-import { formatNumber, formatPercent } from "@/lib/format";
+import { formatBoundaryPercent, formatNumber, formatPercent } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import type { RiskAnalysis } from "@/lib/types";
 import { Metric, Panel, PanelHeader } from "@/components/ui/Panel";
@@ -32,9 +32,9 @@ export function ExposureView({ data }: ExposureViewProps) {
         <div className="rounded-xl border border-line bg-secondary p-4">
           <Metric
             label="Top Asset Weight"
-            value={formatPercent(concentration.top_weight)}
+            value={formatBoundaryPercent(concentration.top_weight, concentration.exceeds_30pct ?? concentration.top_weight > 0.3)}
             detail={`${concentration.top_asset} · >30% adds penalty`}
-            tone={concentration.top_weight > 0.3 ? "negative" : "gold"}
+            tone={(concentration.exceeds_30pct ?? concentration.top_weight > 0.3) ? "negative" : "gold"}
           />
         </div>
         <div className="rounded-xl border border-line bg-secondary p-4">
