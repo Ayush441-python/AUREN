@@ -44,3 +44,4 @@ web/out/
 web/.vercel/
 web/*.tsbuildinfo
 web/npm-debug.log*
+.aider*
