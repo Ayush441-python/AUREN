@@ -107,3 +107,45 @@ def test_wallet_endpoint_shape(monkeypatch):
     assert data["portfolio"] == {"NVDA": 1.0}
     assert data["holdings"][0]["ticker"] == "NVDA"
     assert data["total_value"] == 200.0
+
+
+def test_risk_day1_crash_drawdown_series_and_max_drawdown(monkeypatch):
+    """Day-1 crash followed by monotonic partial recovery must be reflected in both
+    `max_drawdown` and `drawdown_series` (not masked as 0.0% by missing 1.0 peak)."""
+    import pandas as pd
+    import pytest
+    import backend.app.main as api_module
+
+    n_days = 35
+    idx = pd.date_range("2025-01-01", periods=n_days, freq="B")
+    # Day 0 = 100.0, Day 1 = 65.0 (-35% crash), then steady recovery up to ~85.0
+    # (never recovering past initial 100.0 capital peak).
+    prices_path = [100.0]
+    val = 65.0
+    for i in range(1, n_days):
+        prices_path.append(val)
+        val *= 1.008
+
+    frame = pd.DataFrame({"NVDA": prices_path}, index=idx)
+    monkeypatch.setattr(api_module, "load_prices", lambda tickers, period="2y": frame[list(tickers)])
+
+    response = client.post("/risk", json={"weights": {"NVDA": 100}})
+    assert response.status_code == 200
+    data = response.json()
+
+    assert len(data["drawdown_series"]) == n_days
+    assert len(data["price_series"]["Portfolio"]) == n_days
+    assert data["drawdown_series"][0] == 0.0
+    assert data["drawdown_series"][1] == pytest.approx(-0.35, abs=1e-4)
+    assert data["max_drawdown"] == pytest.approx(-0.35, abs=1e-4)
+    assert min(data["drawdown_series"]) == pytest.approx(data["max_drawdown"], abs=1e-4)
+
+    # Every drawdown point must match its Portfolio series peak-to-trough decline
+    pf = data["price_series"]["Portfolio"]
+    running_peak = pf[0]
+    for p, dd_val in zip(pf, data["drawdown_series"]):
+        running_peak = max(running_peak, p)
+        assert dd_val == pytest.approx(p / running_peak - 1.0, abs=1e-3)
+
+    # -35% < -30% must trigger the +15 pts max drawdown penalty rule
+    assert any("deeper than -30%" in reason for reason in data["reasons"])
