@@ -18,8 +18,8 @@ def risk_score(conc: dict, vol: float, mdd: float, pairs: list, sector_max: floa
          f"Volatility is {vol:.0%} a year (over 30%)"),
         (mdd < -0.30, 15,
          f"Worst past fall was {mdd:.0%} (deeper than -30%)"),
-        (len(pairs) >= 2, 15,
-         f"{len(pairs)} pairs of assets move closely together"),
+        (len([p for p in pairs if float(p[-1]) > 0.7]) >= 2, 15,
+         f"{len([p for p in pairs if float(p[-1]) > 0.7])} pairs of assets move closely together"),
         (sector_max > 0.50, 15,
          f"{sector_max:.0%} sits in one sector"),
     ]
