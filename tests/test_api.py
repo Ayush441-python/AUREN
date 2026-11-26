@@ -107,3 +107,13 @@ def test_wallet_endpoint_shape(monkeypatch):
     assert data["portfolio"] == {"NVDA": 1.0}
     assert data["holdings"][0]["ticker"] == "NVDA"
     assert data["total_value"] == 200.0
+
+
+def test_workstation_request_sequence_guard():
+    """Verify Workstation guards concurrent analysis requests via requestSeqRef."""
+    from pathlib import Path
+
+    workstation = Path("web/src/components/dashboard/Workstation.tsx").read_text(encoding="utf-8")
+    assert "requestSeqRef = useRef(0)" in workstation
+    assert "reqId !== requestSeqRef.current" in workstation
+    assert "reqId === requestSeqRef.current" in workstation

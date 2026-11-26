@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BASE_PORTFOLIO_ANALYSIS } from "@/lib/mock";
 import { calculateRisk } from "@/lib/api";
@@ -85,6 +85,7 @@ export function Workstation({
   const [builderOpen, setBuilderOpen] = useState(openBuilder);
   const [walletOpen, setWalletOpen] = useState(false);
   const [simulation, setSimulation] = useState<SimulationComparison | null>(null);
+  const requestSeqRef = useRef(0);
 
   const wallet = useWallet();
   const portfolioName =
@@ -117,15 +118,16 @@ export function Workstation({
 
   useEffect(() => {
     let active = true;
+    const reqId = ++requestSeqRef.current;
     calculateRisk(BASE_PORTFOLIO_ANALYSIS.normalized_weights)
       .then((live) => {
-        if (!active || !live || typeof live.score !== "number") return;
+        if (!active || reqId !== requestSeqRef.current || !live || typeof live.score !== "number") return;
         setData(live);
         setDataStatus("live");
         setError(null);
       })
       .catch((loadError: unknown) => {
-        if (!active) return;
+        if (!active || reqId !== requestSeqRef.current) return;
         setDataStatus("reference");
         setError(
           `Live analysis unavailable: ${errorMessage(
@@ -135,7 +137,7 @@ export function Workstation({
         );
       })
       .finally(() => {
-        if (active) setLoading(false);
+        if (active && reqId === requestSeqRef.current) setLoading(false);
       });
     return () => {
       active = false;
@@ -144,20 +146,23 @@ export function Workstation({
 
   const handleApplyPortfolio = useCallback(
     async (weights: Record<string, number>, name: string) => {
+      const reqId = ++requestSeqRef.current;
       const previousStatus = dataStatus;
-      setCustomPortfolioName(name);
       setLoading(true);
       setError(null);
       setSimulation(null);
       try {
         const live = await calculateRisk(weights);
+        if (reqId !== requestSeqRef.current) return;
         if (!live || typeof live.score !== "number") {
           throw new Error("The risk engine returned an incomplete analysis.");
         }
+        setCustomPortfolioName(name);
         setData(live);
         setDataStatus("live");
         selectTab("overview");
       } catch (applyError) {
+        if (reqId !== requestSeqRef.current) return;
         setDataStatus("stale");
         setError(
           `Could not analyze "${name}": ${errorMessage(
@@ -168,7 +173,7 @@ export function Workstation({
           } analysis.`
         );
       } finally {
-        setLoading(false);
+        if (reqId === requestSeqRef.current) setLoading(false);
       }
     },
     [dataStatus, selectTab]
@@ -176,10 +181,12 @@ export function Workstation({
 
   const handleSimulate = useCallback(
     async (newWeights: Record<string, number>) => {
+      const reqId = ++requestSeqRef.current;
       setLoading(true);
       setError(null);
       try {
         const live = await calculateRisk(newWeights);
+        if (reqId !== requestSeqRef.current) return;
         if (!live || typeof live.score !== "number") {
           throw new Error("The risk engine returned an incomplete analysis.");
         }
@@ -187,6 +194,7 @@ export function Workstation({
         setData(live);
         setDataStatus("live");
       } catch (simulateError) {
+        if (reqId !== requestSeqRef.current) return;
         setDataStatus("stale");
         setError(
           `Recalculation failed: ${errorMessage(
@@ -195,7 +203,7 @@ export function Workstation({
           )}. Sandbox weights were not applied; the previous analysis is still displayed.`
         );
       } finally {
-        setLoading(false);
+        if (reqId === requestSeqRef.current) setLoading(false);
       }
     },
     [data]
