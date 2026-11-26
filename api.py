@@ -174,13 +174,19 @@ def _normalize_and_validate_weights(weights: Dict[str, float]) -> pd.Series:
             detail="Portfolio weights cannot be empty",
         )
 
-    # Normalize ticker symbols to uppercase and alias common crypto/currency tickers
+    # Normalize ticker symbols to uppercase, alias common crypto/currency
+    # tickers, and reject canonical collisions before validation.
     clean_weights: Dict[str, float] = {}
-    for k, v in weights.items():
-        key = k.strip().upper()
-        if key in {"ETH", "BTC", "SOL", "DOGE", "AVAX", "LINK", "SUI"}:
-            key = f"{key}-USD"
-        clean_weights[key] = clean_weights.get(key, 0.0) + v
+    for raw_ticker, value in weights.items():
+        ticker = raw_ticker.strip().upper()
+        if ticker in {"ETH", "BTC", "SOL", "DOGE", "AVAX", "LINK", "SUI"}:
+            ticker = f"{ticker}-USD"
+        if ticker in clean_weights:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Duplicate canonical ticker: {ticker}",
+            )
+        clean_weights[ticker] = value
 
     # Dynamically register any recognizable market ticker not yet in SECTORS
     unknown = []
