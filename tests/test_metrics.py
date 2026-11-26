@@ -61,6 +61,32 @@ def test_single_rule_adds_its_points():
     assert score == 20 and len(hits) == 1
 
 
+def test_risk_score_ignores_low_correlation_pairs():
+    conc = {"top_weight": 0.10, "effective_assets": 10}
+    pairs = [(0.0,), (0.0,), ("A", "B", 0.7)]
+    score, level, hits = risk_score(
+        conc, vol=0.31, mdd=-0.05, pairs=pairs, sector_max=0.10
+    )
+    assert score == 20
+    assert level == "Low"
+    assert len(hits) == 1
+
+
+def test_risk_score_counts_only_pairs_above_correlation_threshold():
+    conc = {"top_weight": 0.10, "effective_assets": 10}
+    # Only 1 pair > 0.7 -> should not trigger the >= 2 pairs rule
+    one_strong = [("A", "B", 0.85), ("A", "C", 0.30), ("B", "C", 0.70)]
+    score, level, hits = risk_score(conc, 0.10, -0.05, one_strong, 0.20)
+    assert score == 0 and level == "Low" and hits == []
+
+    # 2 pairs > 0.7 plus 1 weak pair -> should trigger and report exactly 2 pairs
+    two_strong = [("A", "B", 0.85), ("A", "C", 0.75), ("B", "C", 0.20)]
+    score, level, hits = risk_score(conc, 0.10, -0.05, two_strong, 0.20)
+    assert score == 15
+    assert level == "Low"
+    assert hits == [(15, "2 pairs of assets move closely together")]
+
+
 def test_sector_exposure_tech():
     # Day 9 test from playbook: NVDA 50% + MSFT 50% gives Big Tech = 100%
     w = pd.Series([0.5, 0.5], index=["NVDA", "MSFT"])
