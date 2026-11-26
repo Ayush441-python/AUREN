@@ -257,7 +257,7 @@ def inspect_wallet_address(address: str, rpc_url: str | None = None) -> dict:
 
     rows = info["rows"]
     df, total, skipped = holdings_to_portfolio(rows)
-    portfolio = {str(r["ticker"]): round(float(r["weight"]) / 100, 6) for _, r in df.iterrows()}
+    portfolio = {str(r["ticker"]): float(r["weight"]) / 100 for _, r in df.iterrows()}
     has_holdings = len(portfolio) > 0 and total > 0
 
     return json_safe({
