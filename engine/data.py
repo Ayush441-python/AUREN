@@ -70,7 +70,9 @@ def _load(field: str, tickers: list[str], period: str,
                     pass
 
     df = df[[t for t in tickers if t in df.columns]]
-    if not df.empty:
+    # A partial fallback is useful to the immediate caller, but must not
+    # occupy the full-portfolio cache key and hide provider recovery for an hour.
+    if not df.empty and all(t in df.columns for t in tickers):
         with _lock:
             _memo[key] = (now, df)
     return df.copy()
