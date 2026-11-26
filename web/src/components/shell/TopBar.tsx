@@ -1,12 +1,15 @@
 "use client";
 
 import React, { useState } from "react";
-import { ChevronDown, ShieldAlert, Sparkles, Plus, Wallet, ExternalLink, Check } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ChevronDown, ShieldAlert, Plus, Wallet } from "lucide-react";
+import { QUICK_WORKSPACES } from "@/lib/presets";
 
 interface TopBarProps {
   portfolioName?: string;
   onNewPortfolio?: () => void;
   onOpenWalletModal?: () => void;
+  onSelectPortfolio?: (weights: Record<string, number>, name: string) => void;
   walletAddress?: string | null;
   activeTab?: string;
 }
@@ -15,9 +18,11 @@ export function TopBar({
   portfolioName = "Sample: Balanced Multi-Asset",
   onNewPortfolio,
   onOpenWalletModal,
+  onSelectPortfolio,
   walletAddress,
 }: TopBarProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const router = useRouter();
 
   return (
     <header className="sticky top-0 z-30 flex h-14 w-full items-center justify-between border-b border-[#26262C] bg-[#151518]/95 px-4 md:px-6 backdrop-blur-sm">
@@ -41,34 +46,36 @@ export function TopBar({
               <div className="px-2.5 py-1 text-[11px] font-medium uppercase tracking-wider text-[#6B6E76]">
                 Institutional Workspaces
               </div>
-              <button
-                onClick={() => setDropdownOpen(false)}
-                className="flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-xs text-[#F5F6F7] hover:bg-[#26262C]"
-              >
-                <span>Balanced Multi-Asset</span>
-                <span className="font-mono text-[11px] text-[#A1A4AB]">5 assets</span>
-              </button>
-              <button
-                onClick={() => setDropdownOpen(false)}
-                className="flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-xs text-[#A1A4AB] hover:bg-[#26262C] hover:text-[#F5F6F7]"
-              >
-                <span>Mega-Cap Tech Focus</span>
-                <span className="font-mono text-[11px] text-[#6B6E76]">4 assets</span>
-              </button>
-              <button
-                onClick={() => setDropdownOpen(false)}
-                className="flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-xs text-[#A1A4AB] hover:bg-[#26262C] hover:text-[#F5F6F7]"
-              >
-                <span>Digital Asset Core</span>
-                <span className="font-mono text-[11px] text-[#6B6E76]">Crypto L1s</span>
-              </button>
+              {QUICK_WORKSPACES.map((ws) => (
+                <button
+                  key={ws.name}
+                  onClick={() => {
+                    setDropdownOpen(false);
+                    if (onSelectPortfolio) {
+                      onSelectPortfolio(ws.weights, ws.name);
+                    } else {
+                      router.push(`/dashboard?preset=${encodeURIComponent(ws.name)}`);
+                    }
+                  }}
+                  className={`flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-xs hover:bg-[#26262C] ${
+                    portfolioName === ws.name ? "text-[#F5F6F7]" : "text-[#A1A4AB] hover:text-[#F5F6F7]"
+                  }`}
+                >
+                  <span>{ws.name}</span>
+                  <span className="font-mono text-[11px] text-[#6B6E76]">{ws.badge}</span>
+                </button>
+              ))}
 
               <div className="my-1 border-t border-[#26262C]" />
 
               <button
                 onClick={() => {
                   setDropdownOpen(false);
-                  if (onNewPortfolio) onNewPortfolio();
+                  if (onNewPortfolio) {
+                    onNewPortfolio();
+                  } else {
+                    router.push("/dashboard?new=1");
+                  }
                 }}
                 className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium text-[#E3B341] hover:bg-[#E3B341]/10"
               >
@@ -121,7 +128,13 @@ export function TopBar({
         )}
 
         <button
-          onClick={onNewPortfolio}
+          onClick={() => {
+            if (onNewPortfolio) {
+              onNewPortfolio();
+            } else {
+              router.push("/dashboard?new=1");
+            }
+          }}
           className="flex items-center gap-1.5 rounded-md bg-[#E3B341] px-3 py-1.5 text-xs font-semibold text-[#0E0E10] transition hover:bg-[#f0c254] active:scale-[0.98]"
         >
           <Plus className="h-3.5 w-3.5" />

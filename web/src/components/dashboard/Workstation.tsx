@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BASE_PORTFOLIO_ANALYSIS } from "@/lib/mock";
 import { calculateRisk } from "@/lib/api";
+import { findPresetWeights } from "@/lib/presets";
 import { useWallet } from "@/lib/useWallet";
 import type { RiskAnalysis } from "@/lib/types";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
@@ -41,6 +42,7 @@ export interface WorkstationProps {
   initialTab?: NavItemKey;
   openBuilder?: boolean;
   portfolioId?: string;
+  initialPreset?: string;
 }
 
 const ALL_NAV_TABS: NavItemKey[] = [
@@ -74,12 +76,16 @@ export function Workstation({
   initialTab = "overview",
   openBuilder = false,
   portfolioId,
+  initialPreset,
 }: WorkstationProps) {
+  const presetMatch = findPresetWeights(initialPreset);
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<NavItemKey>(initialTab);
   const [data, setData] = useState<RiskAnalysis>(BASE_PORTFOLIO_ANALYSIS);
   const [dataStatus, setDataStatus] = useState<DataStatus>("reference");
-  const [customPortfolioName, setCustomPortfolioName] = useState<string | null>(null);
+  const [customPortfolioName, setCustomPortfolioName] = useState<string | null>(
+    presetMatch ? presetMatch.name : null
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [builderOpen, setBuilderOpen] = useState(openBuilder);
@@ -117,7 +123,11 @@ export function Workstation({
 
   useEffect(() => {
     let active = true;
-    calculateRisk(BASE_PORTFOLIO_ANALYSIS.normalized_weights)
+    const match = findPresetWeights(initialPreset);
+    const initialWeights = match
+      ? match.weights
+      : BASE_PORTFOLIO_ANALYSIS.normalized_weights;
+    calculateRisk(initialWeights)
       .then((live) => {
         if (!active || !live || typeof live.score !== "number") return;
         setData(live);
@@ -140,7 +150,7 @@ export function Workstation({
     return () => {
       active = false;
     };
-  }, []);
+  }, [initialPreset]);
 
   const handleApplyPortfolio = useCallback(
     async (weights: Record<string, number>, name: string) => {

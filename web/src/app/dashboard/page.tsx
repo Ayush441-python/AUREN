@@ -60,6 +60,7 @@ export default async function DashboardPage({
       initialTab={parseTab(params.tab)}
       openBuilder={params.new === "1"}
       portfolioId={typeof params.portfolio === "string" ? params.portfolio : undefined}
+      initialPreset={typeof params.preset === "string" ? params.preset : undefined}
     />
   );
 }
