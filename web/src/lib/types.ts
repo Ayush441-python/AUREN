@@ -27,6 +27,8 @@ export interface RiskAnalysis {
   volatility: number;
   max_drawdown: number;
   sector_exposure: Record<string, number>;
+  group_exposure?: Record<string, number>;
+  groups?: Record<string, string>;
   correlated_pairs: [string, string, number][];
   stress: Record<string, number>;
   worst_historical_periods: {
