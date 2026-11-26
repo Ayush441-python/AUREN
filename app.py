@@ -157,7 +157,7 @@ def analyze(w: pd.Series):
     pr = portfolio_returns(prices, w)
     vol, mdd = volatility(pr), max_drawdown(pr)
     value = (1 + pr).cumprod()
-    drawdown = value / value.cummax() - 1
+    drawdown = value / value.cummax().clip(lower=1.0) - 1
     corr = correlation(prices, w.index)
     pairs = high_pairs(corr)
     exposure = sector_exposure(w)
