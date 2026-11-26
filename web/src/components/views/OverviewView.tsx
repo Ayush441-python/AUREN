@@ -39,6 +39,7 @@ export function OverviewView({
 }: OverviewViewProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const rankedHits = [...data.hits].sort((a, b) => b[0] - a[0]);
+  const rankedReasons = rankedHits.length ? rankedHits.map(([, reason]) => reason) : data.reasons;
   const worstStress = Object.entries(data.stress).sort((a, b) => a[1] - b[1])[0];
   const worstDrawdown = Math.min(...(data.drawdown_series.length ? data.drawdown_series : [0]));
 
@@ -192,13 +193,13 @@ export function OverviewView({
               </div>
             )}
 
-            {data.reasons.length > 0 && (
+            {rankedReasons.length > 0 && (
               <div className="mt-4 border-t border-line pt-3">
                 <span className="font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-muted">
                   Engine Observations
                 </span>
                 <ul className="mt-2 space-y-1.5 text-xs text-muted">
-                  {data.reasons.map((reason, index) => (
+                  {rankedReasons.map((reason, index) => (
                     <li key={index} className="flex items-start gap-2">
                       <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-gold" />
                       <span>{reason}</span>

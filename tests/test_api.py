@@ -107,3 +107,33 @@ def test_wallet_endpoint_shape(monkeypatch):
     assert data["portfolio"] == {"NVDA": 1.0}
     assert data["holdings"][0]["ticker"] == "NVDA"
     assert data["total_value"] == 200.0
+
+
+def test_risk_drivers_endpoint_sorted_by_score_impact(monkeypatch):
+    """Verify /risk returns hits & reasons sorted descending by score impact with stable ties."""
+    from pathlib import Path
+    import backend.app.services.analytics as analytics_mod
+
+    monkeypatch.setattr(analytics_mod, "risk_score", lambda conc, vol, mdd, pairs, max_sec: (55, "Medium", [
+        (20, "Largest holding is 40% (over 30%)"),
+        (15, "Behaves like only 3.3 assets"),
+        (20, "Volatility is 45% a year (over 30%)"),
+    ]))
+    data = client.post("/risk", json={"weights": {"NVDA": 40, "AAPL": 60}}).json()
+    assert [p for p, _ in data["hits"]] == [20, 20, 15]
+    assert data["reasons"] == [
+        "Largest holding is 40% (over 30%)",
+        "Volatility is 45% a year (over 30%)",
+        "Behaves like only 3.3 assets",
+    ]
+
+    monkeypatch.setattr(analytics_mod, "risk_score", lambda conc, vol, mdd, pairs, max_sec: (0, "Low", []))
+    res_empty = client.post("/risk", json={"weights": {"NVDA": 40, "AAPL": 60}}).json()
+    assert res_empty["hits"] == [] and res_empty["reasons"] == []
+
+    monkeypatch.setattr(analytics_mod, "risk_score", lambda conc, vol, mdd, pairs, max_sec: (30, "Low", [(15, "Rule A"), (15, "Rule B")]))
+    assert client.post("/risk", json={"weights": {"NVDA": 40, "AAPL": 60}}).json()["reasons"] == ["Rule A", "Rule B"]
+
+    ov = Path("web/src/components/views/OverviewView.tsx").read_text(encoding="utf-8")
+    assert "[...data.hits].sort((a, b) => b[0] - a[0])" in ov
+    assert "rankedReasons" in ov
