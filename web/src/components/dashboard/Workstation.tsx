@@ -18,6 +18,7 @@ import { PortfolioBuilderModal } from "@/components/modals/PortfolioBuilderModal
 import { WalletConnectModal } from "@/components/modals/WalletConnectModal";
 import { NavigationProvider } from "@/lib/navigationContext";
 import type { NavItemKey } from "@/lib/navigationTypes";
+import type { RiskModelSettings } from "@/components/views/NavigationViews";
 import {
   RiskMetricsView,
   MarketOverviewView,
@@ -85,6 +86,11 @@ export function Workstation({
   const [builderOpen, setBuilderOpen] = useState(openBuilder);
   const [walletOpen, setWalletOpen] = useState(false);
   const [simulation, setSimulation] = useState<SimulationComparison | null>(null);
+  const [riskSettings, setRiskSettings] = useState<RiskModelSettings>({
+    covarianceWindow: "252",
+    varConfidence: "95",
+    riskFreeRate: "4.25%",
+  });
 
   const wallet = useWallet();
   const portfolioName =
@@ -240,7 +246,7 @@ export function Workstation({
         {activeTab === "market-overview" && <MarketOverviewView data={data} />}
 
         {/* ANALYTICS Sections */}
-        {activeTab === "risk-metrics" && <RiskMetricsView data={data} portfolioName={portfolioName} />}
+        {activeTab === "risk-metrics" && <RiskMetricsView data={data} portfolioName={portfolioName} riskSettings={riskSettings} />}
         {activeTab === "asset-allocation" && <ExposureView data={data} />}
         {activeTab === "correlation-analysis" && <CorrelationView data={data} />}
         {activeTab === "volatility" && <VolatilityAnalysisView data={data} />}
@@ -269,7 +275,7 @@ export function Workstation({
         {activeTab === "reports" && <ReportView data={data} />}
 
         {/* PREFERENCES Sections */}
-        {activeTab === "settings" && <SettingsView />}
+        {activeTab === "settings" && <SettingsView settings={riskSettings} onChange={setRiskSettings} />}
         {activeTab === "help-support" && <HelpSupportView />}
       </DashboardShell>
 
