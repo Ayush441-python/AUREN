@@ -107,3 +107,14 @@ def test_wallet_endpoint_shape(monkeypatch):
     assert data["portfolio"] == {"NVDA": 1.0}
     assert data["holdings"][0]["ticker"] == "NVDA"
     assert data["total_value"] == 200.0
+
+
+def test_risk_drivers_ordered_by_score_impact():
+    response = client.post("/risk", json={"weights": {"NVDA": 70, "AAPL": 30}})
+    assert response.status_code == 200
+    data = response.json()
+    hits = data["hits"]
+    assert len(hits) > 0
+    points = [pts for pts, _ in hits]
+    assert points == sorted(points, reverse=True)
+    assert data["reasons"] == [why for _, why in hits]
