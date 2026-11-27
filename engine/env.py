@@ -39,6 +39,8 @@ def load_env() -> None:
     try:
         from dotenv import load_dotenv
         load_dotenv(ROOT / ".env", override=True)
+        if Path.cwd().resolve() != ROOT.resolve():
+            load_dotenv(Path.cwd() / ".env", override=True)
     except ImportError:
         pass
 
