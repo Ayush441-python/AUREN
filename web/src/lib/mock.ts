@@ -54,6 +54,7 @@ export const BASE_PORTFOLIO_ANALYSIS: RiskAnalysis = {
   },
   volatility: 0.284,
   max_drawdown: -0.384,
+  beta: 1.64,
   sector_exposure: {
     Technology: 0.60,
     Crypto: 0.35,

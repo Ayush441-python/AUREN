@@ -26,6 +26,7 @@ export interface RiskAnalysis {
   concentration: ConcentrationMetrics;
   volatility: number;
   max_drawdown: number;
+  beta?: number | null;
   sector_exposure: Record<string, number>;
   correlated_pairs: [string, string, number][];
   stress: Record<string, number>;

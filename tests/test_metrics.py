@@ -6,6 +6,8 @@ from engine.metrics import (
     max_drawdown,
     correlation,
     high_pairs,
+    portfolio_beta,
+    portfolio_returns,
     sector_exposure,
 )
 from engine.score import risk_score
@@ -73,3 +75,41 @@ def test_stress_scenario():
     w = pd.Series([0.5, 0.5], index=["NVDA", "GLD"])
     shocks = {"Big Tech": -0.20}
     assert stress(w, shocks) == pytest.approx(-0.10)
+
+
+def test_portfolio_beta_identical_benchmark():
+    # 100% SPY vs SPY benchmark must yield beta = 1.00
+    prices = pd.DataFrame({"SPY": [100.0, 102.0, 101.0, 105.0, 103.0, 107.0]})
+    w = pd.Series({"SPY": 1.0})
+    pr = portfolio_returns(prices, w)
+    bench_pr = prices["SPY"].pct_change().dropna()
+    beta = portfolio_beta(pr, bench_pr)
+    assert beta is not None
+    assert beta == pytest.approx(1.0, rel=1e-5)
+
+
+def test_portfolio_beta_leveraged_benchmark():
+    # 2x returns should yield beta = 2.00
+    bench = pd.Series([0.01, -0.02, 0.03, -0.01, 0.02])
+    port = bench * 2.0
+    beta = portfolio_beta(port, bench)
+    assert beta is not None
+    assert beta == pytest.approx(2.0, rel=1e-5)
+
+
+def test_portfolio_beta_missing_benchmark():
+    port = pd.Series([0.01, -0.02, 0.03])
+    assert portfolio_beta(port, None) is None
+
+
+def test_portfolio_beta_zero_variance():
+    port = pd.Series([0.01, -0.02, 0.03])
+    flat_bench = pd.Series([0.0, 0.0, 0.0])
+    assert portfolio_beta(port, flat_bench) is None
+
+
+def test_portfolio_beta_insufficient_data():
+    port = pd.Series([0.01])
+    bench = pd.Series([0.01])
+    assert portfolio_beta(port, bench) is None
+
