@@ -28,6 +28,22 @@ def volatility(pr: pd.Series) -> float:
     return float(pr.std() * np.sqrt(252))  # annualised
 
 
+def sharpe_ratio(pr: pd.Series, risk_free: float = 0.0425) -> float | None:
+    """Annualised Sharpe ratio from daily portfolio returns.
+
+    Uses the simple daily risk-free rate (risk_free / 252) and the sample
+    standard deviation. Returns None when there are too few observations or
+    when volatility is zero, because the ratio is undefined in those cases.
+    """
+    if len(pr) < 2:
+        return None
+    sd = float(pr.std())
+    if not np.isfinite(sd) or sd <= 1e-15:
+        return None
+    excess = float(pr.mean()) - risk_free / 252
+    return float(excess / sd * np.sqrt(252))
+
+
 def max_drawdown(pr: pd.Series) -> float:
     value = (1 + pr).cumprod()
     return float((value / value.cummax() - 1).min())
