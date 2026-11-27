@@ -59,22 +59,19 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 2. Configure Environment Secrets
-Create `.streamlit/secrets.toml` or `.env`:
-```toml
-LLM_BASE_URL = "https://api.groq.com/openai/v1"
-LLM_MODEL = "openai/gpt-oss-120b"
-LLM_REASONING_EFFORT = "low"
-LLM_API_KEY = "your-api-key-here"
-```
+### 2. Run the Risk API (FastAPI)
 
-### 3. Run the Streamlit Dashboard
+To enable AI-generated reports, copy `.env.example` to `.env` and configure your model provider. The risk and liquidity endpoints work without an LLM key.
+
+Run the API from the repository root.
 ```bash
-streamlit run app.py
+python -m uvicorn backend.app.main:app --reload --port 8000
 ```
-Open [http://localhost:8501](http://localhost:8501) in your browser.
+Open the [interactive API docs](http://127.0.0.1:8000/docs) to try `/risk` or use [ReDoc](http://127.0.0.1:8000/redoc) to browse the API reference.
 
-### 4. Run the Next.js Institutional Workstation (New)
+### 3. Run the Next.js Institutional Workstation
+
+With the API running, open a second terminal from the repository root.
 ```bash
 cd web
 npm install
@@ -82,17 +79,9 @@ npm run dev
 ```
 Open [http://localhost:3000](http://localhost:3000) for the Next.js institutional workstation with Recharts, interactive stress testing sandbox, audited math proofs, and Base wallet integration.
 
-### 5. Run the Risk API (FastAPI)
+### 4. Run the Test Suite
 ```bash
-uvicorn api:app --reload --port 8000
-```
-- API Docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
-- Interactive Swagger UI to test `/risk` requests.
-- **Classic Web frontend:** served at [http://127.0.0.1:8000/app/](http://127.0.0.1:8000/app/).
-
-### 6. Run the Test Suite
-```bash
-pytest
+python -m pytest
 ```
 
 ---
