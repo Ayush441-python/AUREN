@@ -25,6 +25,7 @@ import {
   X,
   ExternalLink,
   ChevronRight,
+  ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useNavigation } from "@/lib/navigationContext";
@@ -166,6 +167,13 @@ export const NAVIGATION_STRUCTURE: NavSection[] = [
     key: "PREFERENCES",
     title: "PREFERENCES",
     items: [
+      {
+        id: "docs",
+        label: "API & Proof",
+        icon: ShieldCheck,
+        route: "/dashboard?tab=docs",
+        description: "API endpoints, request examples, and scoring proof",
+      },
       {
         id: "settings",
         label: "Settings",
