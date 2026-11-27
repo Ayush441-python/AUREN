@@ -38,6 +38,17 @@ def test_risk_valid():
     assert "volatility" in data
     assert "sector_exposure" in data
     assert "stress" in data
+    assert "beta" in data
+
+
+def test_risk_100_percent_spy_beta_is_one():
+    response = client.post("/risk", json={"weights": {"SPY": 100}})
+    assert response.status_code == 200
+    data = response.json()
+    assert "beta" in data
+    assert data["beta"] is not None
+    assert round(data["beta"], 2) == 1.00
+
 
 def test_risk_invalid_ticker():
     response = client.post("/risk", json={"weights": {"INVALID_TICKER_XYZ": 100}})

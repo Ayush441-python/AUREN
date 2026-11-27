@@ -41,7 +41,48 @@ export function RiskMetricsView({ data, portfolioName }: NavViewProps) {
   const annReturnEst = data.volatility * 0.65;
   const sharpe = (annReturnEst / (data.volatility || 0.001)).toFixed(2);
   const sortino = (annReturnEst / (Math.abs(data.max_drawdown) * 0.5 || 0.001)).toFixed(2);
-  const beta = "1.04";
+
+  // Dynamically compute beta against SPY benchmark
+  let betaDisplay = "N/A";
+  if (data.beta != null && Number.isFinite(data.beta)) {
+    betaDisplay = Number(data.beta).toFixed(2);
+  } else if (
+    data.price_series?.Portfolio &&
+    data.price_series?.SPY &&
+    data.price_series.Portfolio.length > 1 &&
+    data.price_series.SPY.length > 1
+  ) {
+    const port = data.price_series.Portfolio;
+    const spy = data.price_series.SPY;
+    const minLen = Math.min(port.length, spy.length);
+    const r_p: number[] = [];
+    const r_b: number[] = [];
+    for (let i = 1; i < minLen; i++) {
+      if (port[i - 1] > 0 && spy[i - 1] > 0) {
+        r_p.push(port[i] / port[i - 1] - 1);
+        r_b.push(spy[i] / spy[i - 1] - 1);
+      }
+    }
+    if (r_b.length >= 2) {
+      const mean_b = r_b.reduce((acc, val) => acc + val, 0) / r_b.length;
+      const mean_p = r_p.reduce((acc, val) => acc + val, 0) / r_p.length;
+      const var_b =
+        r_b.reduce((acc, val) => acc + (val - mean_b) ** 2, 0) / (r_b.length - 1);
+      if (var_b > 1e-12) {
+        const cov =
+          r_b.reduce(
+            (acc, val, idx) => acc + (r_p[idx] - mean_p) * (val - mean_b),
+            0
+          ) /
+          (r_b.length - 1);
+        const b = cov / var_b;
+        if (Number.isFinite(b)) {
+          betaDisplay = b.toFixed(2);
+        }
+      }
+    }
+  }
+
   const calmar = (annReturnEst / (Math.abs(data.max_drawdown) || 0.001)).toFixed(2);
 
   return (
@@ -87,7 +128,7 @@ export function RiskMetricsView({ data, portfolioName }: NavViewProps) {
           <span className="font-mono text-[10px] uppercase tracking-wider text-[#9299A3]">
             Portfolio Beta (β)
           </span>
-          <p className="mt-2 font-mono text-2xl font-bold text-[#F4F2ED]">{beta}</p>
+          <p className="mt-2 font-mono text-2xl font-bold text-[#F4F2ED]">{betaDisplay}</p>
           <span className="mt-1 block text-[10px] text-[#636B75]">vs. SPY Benchmark</span>
         </div>
         <div className="rounded-xl border border-[#272B33] bg-[#12151B] p-4">

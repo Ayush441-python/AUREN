@@ -12,6 +12,7 @@ from engine.metrics import (
     correlation,
     high_pairs,
     max_drawdown,
+    portfolio_beta,
     portfolio_returns,
     sector_exposure,
     volatility,
@@ -142,6 +143,19 @@ def compute_portfolio_risk(weights: Dict[str, float], period: str = "2y") -> dic
 
     historical_worst = worst_periods(pr)
 
+    # Compute beta against SPY benchmark
+    fetcher = _get_load_prices_fn()
+    spy_ret = None
+    try:
+        spy_prices = fetcher(["SPY"], period=period)
+        if not spy_prices.empty and "SPY" in spy_prices.columns:
+            spy_ret = spy_prices["SPY"].dropna().pct_change().dropna()
+    except Exception:
+        spy_ret = None
+
+    raw_beta = portfolio_beta(pr, spy_ret)
+    beta = round(raw_beta, 4) if raw_beta is not None else None
+
     start = prices.index[0]
     norm_prices = (prices / prices.iloc[0] * 100).round(2)
 
@@ -179,6 +193,7 @@ def compute_portfolio_risk(weights: Dict[str, float], period: str = "2y") -> dic
         },
         "volatility": round(vol, 4),
         "max_drawdown": round(mdd, 4),
+        "beta": beta,
         "sector_exposure": {k: round(v, 4) for k, v in exposure.to_dict().items()},
         "correlated_pairs": pairs,
         "stress": {name: round(stress(w, s), 4) for name, s in SCENARIOS.items()},
