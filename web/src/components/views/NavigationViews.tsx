@@ -25,6 +25,7 @@ import {
 import { cn } from "@/lib/cn";
 import type { RiskAnalysis } from "@/lib/types";
 import { formatNumber, formatPercent } from "@/lib/format";
+import { computeDerivedQuantMetrics } from "@/lib/quantMetrics";
 import { Button } from "@/components/ui/Button";
 
 // View Props interface for modular sub-views
@@ -38,11 +39,16 @@ export interface NavViewProps {
  * 1. Risk Metrics View (Sharpe, Sortino, Tail ratios, Parametric VaR)
  */
 export function RiskMetricsView({ data, portfolioName }: NavViewProps) {
-  const annReturnEst = data.volatility * 0.65;
-  const sharpe = (annReturnEst / (data.volatility || 0.001)).toFixed(2);
-  const sortino = (annReturnEst / (Math.abs(data.max_drawdown) * 0.5 || 0.001)).toFixed(2);
+  const quant = computeDerivedQuantMetrics({
+    priceSeries: data.price_series,
+    normalizedWeights: data.normalized_weights,
+    portfolioVolatility: data.volatility,
+    maxDrawdown: data.max_drawdown,
+  });
+  const sharpe = quant.sharpeRatio.toFixed(2);
+  const sortino = quant.sortinoRatio.toFixed(2);
   const beta = "1.04";
-  const calmar = (annReturnEst / (Math.abs(data.max_drawdown) || 0.001)).toFixed(2);
+  const calmar = quant.calmarRatio.toFixed(2);
 
   return (
     <div className="space-y-6">
@@ -262,6 +268,13 @@ export function MarketOverviewView({ data }: NavViewProps) {
  * 3. Volatility Analysis View
  */
 export function VolatilityAnalysisView({ data }: NavViewProps) {
+  const quant = computeDerivedQuantMetrics({
+    priceSeries: data.price_series,
+    normalizedWeights: data.normalized_weights,
+    portfolioVolatility: data.volatility,
+    maxDrawdown: data.max_drawdown,
+  });
+
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-[#272B33] bg-[#12151B] p-5">
@@ -307,8 +320,7 @@ export function VolatilityAnalysisView({ data }: NavViewProps) {
           Asset Volatility Ranking
         </h2>
         <div className="mt-3 space-y-2.5">
-          {Object.entries(data.normalized_weights).map(([ticker, weight]) => {
-            const assetVol = data.volatility * (0.8 + (ticker.charCodeAt(0) % 5) * 0.1);
+          {quant.assetVolatilities.map(({ ticker, weight, volatility: assetVol }) => {
             return (
               <div key={ticker} className="flex items-center justify-between border-b border-[#1D2128] pb-2 text-xs">
                 <div className="flex items-center gap-2">
