@@ -28,8 +28,12 @@ function normalizeAssets(assets: CustomAsset[]): Record<string, number> {
   const cleaned = assets
     .map((asset) => ({ ticker: asset.ticker.trim().toUpperCase(), weight: asset.weight }))
     .filter((asset) => asset.ticker && Number.isFinite(asset.weight) && asset.weight > 0);
+  const merged = new Map<string, number>();
+  for (const { ticker, weight } of cleaned) {
+    merged.set(ticker, (merged.get(ticker) ?? 0) + weight);
+  }
   const total = cleaned.reduce((sum, asset) => sum + asset.weight, 0);
-  return Object.fromEntries(cleaned.map((asset) => [asset.ticker, asset.weight / total]));
+  return Object.fromEntries(Array.from(merged, ([ticker, weight]) => [ticker, weight / total]));
 }
 
 function presetWeights(preset: PresetPortfolio): Record<string, number> {
