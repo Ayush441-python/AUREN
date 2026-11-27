@@ -190,6 +190,24 @@ interface AurenSidebarProps {
   className?: string;
 }
 
+export function shouldInterceptSidebarClick(e: {
+  defaultPrevented: boolean;
+  button: number;
+  metaKey: boolean;
+  ctrlKey: boolean;
+  shiftKey: boolean;
+  altKey: boolean;
+}): boolean {
+  return !(
+    e.defaultPrevented ||
+    e.button !== 0 ||
+    e.metaKey ||
+    e.ctrlKey ||
+    e.shiftKey ||
+    e.altKey
+  );
+}
+
 export function AurenSidebar({
   currentTab,
   onSelectTab,
@@ -211,6 +229,9 @@ export function AurenSidebar({
   const currentActive = (currentTab as NavItemKey) || activeItem;
 
   const handleItemClick = (entry: NavEntry, e: React.MouseEvent) => {
+    if (!shouldInterceptSidebarClick(e)) {
+      return;
+    }
     e.preventDefault();
     setActiveItem(entry.id);
     if (onSelectTab) {
