@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BASE_PORTFOLIO_ANALYSIS } from "@/lib/mock";
 import { calculateRisk } from "@/lib/api";
@@ -85,6 +85,7 @@ export function Workstation({
   const [builderOpen, setBuilderOpen] = useState(openBuilder);
   const [walletOpen, setWalletOpen] = useState(false);
   const [simulation, setSimulation] = useState<SimulationComparison | null>(null);
+  const analysisRequestId = useRef(0);
 
   const wallet = useWallet();
   const portfolioName =
@@ -117,15 +118,16 @@ export function Workstation({
 
   useEffect(() => {
     let active = true;
+    const requestId = ++analysisRequestId.current;
     calculateRisk(BASE_PORTFOLIO_ANALYSIS.normalized_weights)
       .then((live) => {
-        if (!active || !live || typeof live.score !== "number") return;
+        if (!active || requestId !== analysisRequestId.current || !live || typeof live.score !== "number") return;
         setData(live);
         setDataStatus("live");
         setError(null);
       })
       .catch((loadError: unknown) => {
-        if (!active) return;
+        if (!active || requestId !== analysisRequestId.current) return;
         setDataStatus("reference");
         setError(
           `Live analysis unavailable: ${errorMessage(
@@ -135,7 +137,7 @@ export function Workstation({
         );
       })
       .finally(() => {
-        if (active) setLoading(false);
+        if (active && requestId === analysisRequestId.current) setLoading(false);
       });
     return () => {
       active = false;
@@ -144,6 +146,7 @@ export function Workstation({
 
   const handleApplyPortfolio = useCallback(
     async (weights: Record<string, number>, name: string) => {
+      const requestId = ++analysisRequestId.current;
       const previousStatus = dataStatus;
       setCustomPortfolioName(name);
       setLoading(true);
@@ -154,10 +157,12 @@ export function Workstation({
         if (!live || typeof live.score !== "number") {
           throw new Error("The risk engine returned an incomplete analysis.");
         }
+        if (requestId !== analysisRequestId.current) return;
         setData(live);
         setDataStatus("live");
         selectTab("overview");
       } catch (applyError) {
+        if (requestId !== analysisRequestId.current) return;
         setDataStatus("stale");
         setError(
           `Could not analyze "${name}": ${errorMessage(
@@ -168,7 +173,7 @@ export function Workstation({
           } analysis.`
         );
       } finally {
-        setLoading(false);
+        if (requestId === analysisRequestId.current) setLoading(false);
       }
     },
     [dataStatus, selectTab]
