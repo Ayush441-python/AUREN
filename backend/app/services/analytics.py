@@ -14,6 +14,7 @@ from engine.metrics import (
     max_drawdown,
     portfolio_returns,
     sector_exposure,
+    tail_risk,
     volatility,
 )
 from engine.report import ai_report, unverified_numbers
@@ -179,6 +180,7 @@ def compute_portfolio_risk(weights: Dict[str, float], period: str = "2y") -> dic
         },
         "volatility": round(vol, 4),
         "max_drawdown": round(mdd, 4),
+        "tail_risk": {k: round(finite(v), 4) for k, v in tail_risk(pr).items()},
         "sector_exposure": {k: round(v, 4) for k, v in exposure.to_dict().items()},
         "correlated_pairs": pairs,
         "stress": {name: round(stress(w, s), 4) for name, s in SCENARIOS.items()},
