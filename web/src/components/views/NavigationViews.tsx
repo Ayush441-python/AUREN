@@ -21,11 +21,15 @@ import {
   Activity,
   Layers,
   Sparkles,
+  Plus,
+  Play,
+  Check,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { RiskAnalysis } from "@/lib/types";
 import { formatNumber, formatPercent } from "@/lib/format";
 import { Button } from "@/components/ui/Button";
+import { Dialog } from "@/components/ui/Dialog";
 
 // View Props interface for modular sub-views
 export interface NavViewProps {
@@ -332,7 +336,7 @@ export function VolatilityAnalysisView({ data }: NavViewProps) {
 /**
  * 4. Watchlist View
  */
-export function WatchlistView() {
+export function WatchlistView({ onNavigateTab }: { onNavigateTab?: (tab: string) => void } = {}) {
   const [watchlist, setWatchlist] = useState([
     { ticker: "NVDA", name: "NVIDIA Corp.", price: "$142.30", change: "+3.24%", rsi: "68.2", beta: "1.84" },
     { ticker: "MSFT", name: "Microsoft Corp.", price: "$428.15", change: "+0.85%", rsi: "54.1", beta: "1.02" },
@@ -341,8 +345,85 @@ export function WatchlistView() {
     { ticker: "TLT", name: "iShares 20+ Year Treasury", price: "$92.10", change: "+0.18%", rsi: "42.5", beta: "0.45" },
   ]);
 
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [tickerInput, setTickerInput] = useState("");
+  const [nameInput, setNameInput] = useState("");
+  const [priceInput, setPriceInput] = useState("");
+  const [simulatingTicker, setSimulatingTicker] = useState<string | null>(null);
+  const [notification, setNotification] = useState<string | null>(null);
+
+  const handleOpenAddModal = () => {
+    setTickerInput("");
+    setNameInput("");
+    setPriceInput("");
+    setIsModalOpen(true);
+  };
+
+  const handleAddInstrument = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanTicker = tickerInput.trim().toUpperCase();
+    if (!cleanTicker) return;
+
+    // Check if already in watchlist
+    if (watchlist.some((item) => item.ticker === cleanTicker)) {
+      setNotification(`${cleanTicker} is already in the watchlist.`);
+      setTimeout(() => setNotification(null), 4000);
+      setIsModalOpen(false);
+      return;
+    }
+
+    const cleanName = nameInput.trim() || `${cleanTicker} Asset`;
+    const cleanPrice = priceInput.trim()
+      ? priceInput.startsWith("$")
+        ? priceInput.trim()
+        : `$${priceInput.trim()}`
+      : "$100.00";
+
+    const newItem = {
+      ticker: cleanTicker,
+      name: cleanName,
+      price: cleanPrice,
+      change: "+0.00%",
+      rsi: "50.0",
+      beta: "1.00",
+    };
+
+    setWatchlist((prev) => [newItem, ...prev]);
+    setIsModalOpen(false);
+    setNotification(`Added ${cleanTicker} to active monitoring watchlist.`);
+    setTimeout(() => setNotification(null), 4000);
+  };
+
+  const handleSimulateInSandbox = (ticker: string) => {
+    setSimulatingTicker(ticker);
+    setNotification(`Simulating sandbox scenario with ${ticker}...`);
+
+    setTimeout(() => {
+      setSimulatingTicker(null);
+      if (onNavigateTab) {
+        onNavigateTab("stress-testing");
+      }
+    }, 600);
+  };
+
   return (
     <div className="space-y-6">
+      {notification && (
+        <div className="flex items-center justify-between rounded-lg border border-[#D6B56D]/40 bg-[#D6B56D]/10 px-4 py-3 text-xs text-[#F4F2ED] transition-all">
+          <div className="flex items-center gap-2">
+            <Check className="h-4 w-4 text-[#D6B56D]" />
+            <span>{notification}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setNotification(null)}
+            className="text-[11px] text-[#9299A3] hover:text-[#F4F2ED]"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-xl border border-[#272B33] bg-[#12151B] p-5">
         <div>
           <span className="font-mono text-[9px] uppercase tracking-widest text-[#D6B56D]">
@@ -353,8 +434,13 @@ export function WatchlistView() {
             Target securities and assets flagged for portfolio inclusion or hedging.
           </p>
         </div>
-        <Button variant="secondary" className="text-xs">
-          + Add Instrument
+        <Button
+          variant="secondary"
+          className="text-xs flex items-center gap-1.5"
+          onClick={handleOpenAddModal}
+        >
+          <Plus className="h-3.5 w-3.5 text-[#D6B56D]" />
+          Add Instrument
         </Button>
       </div>
 
@@ -390,8 +476,20 @@ export function WatchlistView() {
                   <td className="py-3 text-[#E4E6EA]">{item.rsi}</td>
                   <td className="py-3 text-[#D6B56D]">{item.beta}</td>
                   <td className="py-3 text-right">
-                    <button className="text-[11px] font-sans text-[#D6B56D] hover:underline">
-                      Simulate In Sandbox
+                    <button
+                      type="button"
+                      onClick={() => handleSimulateInSandbox(item.ticker)}
+                      disabled={simulatingTicker === item.ticker}
+                      className="inline-flex items-center gap-1 text-[11px] font-sans text-[#D6B56D] hover:underline disabled:opacity-50"
+                    >
+                      {simulatingTicker === item.ticker ? (
+                        <span>Simulating...</span>
+                      ) : (
+                        <>
+                          <Play className="h-3 w-3" />
+                          <span>Simulate In Sandbox</span>
+                        </>
+                      )}
                     </button>
                   </td>
                 </tr>
@@ -400,6 +498,70 @@ export function WatchlistView() {
           </table>
         </div>
       </div>
+
+      <Dialog
+        open={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title="Add Instrument to Watchlist"
+        description="Monitor an additional security or asset for risk attribution and quantitative sandbox stress testing."
+      >
+        <form onSubmit={handleAddInstrument} className="space-y-4">
+          <div>
+            <label className="block font-mono text-[11px] uppercase tracking-wider text-[#9299A3]">
+              Symbol / Ticker *
+            </label>
+            <input
+              type="text"
+              required
+              placeholder="e.g. AAPL, ETH-USD, SPY"
+              value={tickerInput}
+              onChange={(e) => setTickerInput(e.target.value)}
+              className="mt-1.5 w-full rounded-lg border border-[#272B33] bg-[#0E1116] px-3 py-2 font-mono text-sm text-[#F4F2ED] placeholder:text-[#636B75] focus:border-[#D6B56D] focus:outline-none"
+              autoFocus
+            />
+          </div>
+
+          <div>
+            <label className="block font-mono text-[11px] uppercase tracking-wider text-[#9299A3]">
+              Asset Name (Optional)
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. Apple Inc."
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              className="mt-1.5 w-full rounded-lg border border-[#272B33] bg-[#0E1116] px-3 py-2 font-sans text-sm text-[#F4F2ED] placeholder:text-[#636B75] focus:border-[#D6B56D] focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block font-mono text-[11px] uppercase tracking-wider text-[#9299A3]">
+              Latest Price (Optional)
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. $230.50"
+              value={priceInput}
+              onChange={(e) => setPriceInput(e.target.value)}
+              className="mt-1.5 w-full rounded-lg border border-[#272B33] bg-[#0E1116] px-3 py-2 font-mono text-sm text-[#F4F2ED] placeholder:text-[#636B75] focus:border-[#D6B56D] focus:outline-none"
+            />
+          </div>
+
+          <div className="mt-6 flex items-center justify-end gap-3 border-t border-[#1D2128] pt-4">
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-xs"
+              onClick={() => setIsModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" className="text-xs">
+              Add to Watchlist
+            </Button>
+          </div>
+        </form>
+      </Dialog>
     </div>
   );
 }
