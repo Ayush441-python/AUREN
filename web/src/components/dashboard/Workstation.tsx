@@ -264,7 +264,7 @@ export function Workstation({
         )}
 
         {/* WORKSPACE Sections */}
-        {activeTab === "watchlist" && <WatchlistView />}
+        {activeTab === "watchlist" && <WatchlistView onNavigateTab={selectTab as any} />}
         {activeTab === "saved-portfolios" && <SavedPortfoliosView />}
         {activeTab === "reports" && <ReportView data={data} />}
 
