@@ -94,6 +94,40 @@ def test_risk_mixed_stock_and_crypto_is_json_safe_and_aligned(monkeypatch):
         assert None not in series
 
 
+def test_risk_publishes_full_precision_correlation_matrix(monkeypatch):
+    import numpy as np
+    import pandas as pd
+    from unittest.mock import patch
+    from backend.app.services import analytics
+
+    a = np.tile([1, -1, 1, -1], 10)
+    b = np.tile([1, 1, -1, -1], 10)
+    returns = pd.DataFrame({
+        "AAPL": 0.01 * a,
+        "MSFT": 0.01 * b,
+        "NVDA": -0.01 * (a + b) + 0.0001 * a * b,
+    })
+    prices = 100 * pd.concat(
+        [pd.DataFrame([[1.0, 1.0, 1.0]], columns=returns.columns), 1 + returns],
+        ignore_index=True,
+    ).cumprod()
+    prices.index = pd.bdate_range("2026-01-05", periods=len(prices))
+
+    with patch.object(analytics, "load_aligned_prices", return_value=prices):
+        result = analytics.compute_portfolio_risk(dict.fromkeys(returns.columns, 1.0))
+
+    raw = prices.pct_change().dropna()
+    published = np.asarray(result["correlation_matrix"]["data"])
+    weights = np.full(3, 1 / 3)
+    volatilities = weights * raw.std().to_numpy()
+
+    assert np.array_equal(published, raw.corr().to_numpy())
+    assert np.linalg.eigvalsh(published).min() >= -1e-12
+    assert np.isclose(
+        (raw @ weights).var(), volatilities @ published @ volatilities, rtol=1e-10
+    )
+
+
 def test_wallet_endpoint_shape(monkeypatch):
     import backend.app.main as api_module
 
