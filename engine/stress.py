@@ -34,5 +34,8 @@ def stress(w: pd.Series, shocks: dict) -> float:
 
 
 def worst_periods(pr: pd.Series) -> dict:
-    month = (1 + pr).rolling(21).apply(np.prod, raw=True) - 1
+    if pr.empty:
+        return {"worst_day": 0.0, "worst_month": 0.0}
+    window = min(21, len(pr))
+    month = (1 + pr).rolling(window).apply(np.prod, raw=True) - 1
     return {"worst_day": float(pr.min()), "worst_month": float(month.min())}
