@@ -236,7 +236,15 @@ export function Workstation({
           />
         )}
         {activeTab === "portfolio" && <ExposureView data={data} />}
-        {activeTab === "risk-analysis" && <StressView data={data} />}
+        {activeTab === "risk-analysis" && (
+          <StressView
+            data={data}
+            onSimulate={handleSimulate}
+            isSimulating={loading}
+            simulation={simulation}
+            error={error}
+          />
+        )}
         {activeTab === "market-overview" && <MarketOverviewView data={data} />}
 
         {/* ANALYTICS Sections */}
