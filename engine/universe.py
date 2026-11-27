@@ -105,6 +105,7 @@ SECTORS: Dict[str, str] = {
 
     # Commodities & Gold
     "GLD": "Gold",
+    "IAU": "Gold",
     "SLV": "Silver",
 
     # Crypto & Digital Assets
@@ -156,7 +157,7 @@ _GROUP_MEMBERS: Dict[str, List[str]] = {
         "TLT", "BND"
     ],
     "Gold & Commodities": [
-        "GLD", "SLV"
+        "GLD", "IAU", "SLV"
     ],
     "Crypto": [
         "ETH-USD", "BTC-USD", "SOL-USD", "AVAX-USD", "DOGE-USD",
@@ -197,7 +198,7 @@ def classify_and_register_ticker(ticker: str) -> Tuple[str, str]:
     elif t in {"TLT", "BND", "AGG", "IEF", "SHY"}:
         sector = "Fixed Income"
         group = "Bonds & Fixed Income"
-    elif t in {"GLD", "SLV", "IAU", "USO", "UNG"}:
+    elif t in {"GLD", "SLV", "USO", "UNG"}:
         sector = "Commodities"
         group = "Gold & Commodities"
     else:
