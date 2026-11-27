@@ -157,7 +157,7 @@ def compute_portfolio_risk(weights: Dict[str, float], period: str = "2y") -> dic
 
     corr_matrix = {
         "columns": list(corr.columns),
-        "data": [[round(float(v), 4) for v in row] for row in corr.values],
+        "data": [[float(v) for v in row] for row in corr.values],
     }
 
     result = {
