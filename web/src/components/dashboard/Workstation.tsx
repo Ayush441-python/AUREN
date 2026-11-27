@@ -60,6 +60,7 @@ const ALL_NAV_TABS: NavItemKey[] = [
   "reports",
   "settings",
   "help-support",
+  "docs",
 ];
 
 function isNavTab(value: string): value is NavItemKey {
@@ -270,6 +271,7 @@ export function Workstation({
 
         {/* PREFERENCES Sections */}
         {activeTab === "settings" && <SettingsView />}
+        {activeTab === "docs" && <DocsProofView data={data} />}
         {activeTab === "help-support" && <HelpSupportView />}
       </DashboardShell>
 

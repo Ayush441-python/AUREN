@@ -39,7 +39,7 @@ const NAV_ITEMS: readonly NavItem[] = [
   { id: "stress-testing", label: "Stress Testing", icon: Activity },
   { id: "reports", label: "AI Verification", icon: FileText },
   { id: "historical-performance", label: "Executive Deck", icon: Presentation },
-  { id: "help-support", label: "API & Proof", icon: ShieldCheck },
+  { id: "docs", label: "API & Proof", icon: ShieldCheck },
 ];
 
 const STATUS_LABEL: Record<DataStatus, string> = {

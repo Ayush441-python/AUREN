@@ -24,6 +24,7 @@ const ALL_TABS: NavItemKey[] = [
   "reports",
   "settings",
   "help-support",
+  "docs",
 ];
 
 // Mapping for backwards compatibility with legacy tabs
@@ -33,7 +34,8 @@ const LEGACY_MAP: Record<string, NavItemKey> = {
   stress: "stress-testing",
   report: "reports",
   slides: "reports",
-  docs: "help-support",
+  proof: "docs",
+  "api-docs": "docs",
 };
 
 function parseTab(value: string | string[] | undefined): NavItemKey {
