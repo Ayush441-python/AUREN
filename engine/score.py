@@ -16,7 +16,7 @@ def risk_score(conc: dict, vol: float, mdd: float, pairs: list, sector_max: floa
          f"Behaves like only {conc['effective_assets']:.1f} assets"),
         (vol > 0.30, 20,
          f"Volatility is {vol:.0%} a year (over 30%)"),
-        (mdd < -0.30, 15,
+        (round(mdd, 7) < -0.30, 15,
          f"Worst past fall was {mdd:.0%} (deeper than -30%)"),
         (len(pairs) >= 2, 15,
          f"{len(pairs)} pairs of assets move closely together"),
