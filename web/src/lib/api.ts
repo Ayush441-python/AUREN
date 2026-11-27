@@ -8,8 +8,12 @@ import {
 
 const getApiBase = (): string => {
   if (typeof window !== "undefined") {
-    const saved = localStorage.getItem("auren_api_url");
-    if (saved) return saved.replace(/\/+$/, "");
+    try {
+      const saved = localStorage.getItem("auren_api_url");
+      if (saved) return saved.replace(/\/+$/, "");
+    } catch {
+      // Storage can be disabled by browser privacy settings; use the normal fallback.
+    }
     if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
       return "http://127.0.0.1:8000";
     }
