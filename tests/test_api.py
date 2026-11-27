@@ -1,4 +1,8 @@
+import pandas as pd
+import pytest
 from fastapi.testclient import TestClient
+
+import backend.app.main as api_module
 from backend.app.main import app
 
 client = TestClient(app)
@@ -39,6 +43,31 @@ def test_risk_valid():
     assert "sector_exposure" in data
     assert "stress" in data
 
+
+@pytest.mark.parametrize(
+    ("weights", "score", "level"),
+    [
+        ({"AAPL": 0.30004, "GLD": 0.29996, "TLT": 0.2, "SPY": 0.2}, 35, "Medium"),
+        ({"AAPL": 0.99996, "GLD": 0.00004}, 50, "Medium"),
+    ],
+)
+def test_risk_normalized_weights_can_be_submitted_again(monkeypatch, weights, score, level):
+    prices = pd.DataFrame(
+        100.0, index=pd.bdate_range("2025-01-02", periods=35), columns=list(weights)
+    )
+    monkeypatch.setattr(api_module, "load_prices", lambda tickers, period: prices[tickers])
+
+    baseline = client.post("/risk", json={"weights": weights})
+    assert baseline.status_code == 200
+    original = baseline.json()
+    assert (original["score"], original["level"]) == (score, level)
+
+    replay = client.post("/risk", json={"weights": original["normalized_weights"]})
+    assert replay.status_code == 200
+    repeated = replay.json()
+    assert (repeated["score"], repeated["level"]) == (score, level)
+    assert repeated["normalized_weights"] == pytest.approx(weights)
+
 def test_risk_invalid_ticker():
     response = client.post("/risk", json={"weights": {"INVALID_TICKER_XYZ": 100}})
     assert response.status_code == 400
@@ -70,9 +99,6 @@ def test_risk_mixed_stock_and_crypto_is_json_safe_and_aligned(monkeypatch):
     """Stocks skip weekends, crypto does not. The raw frame has NaN rows; the API must
     drop them so the JSON is valid and every chart series matches `dates`."""
     import numpy as np
-    import pandas as pd
-    import backend.app.main as api_module
-
     idx = pd.date_range("2025-01-01", periods=120, freq="D")  # includes weekends
     rng = np.random.default_rng(0)
     frame = pd.DataFrame({

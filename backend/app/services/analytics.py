@@ -163,7 +163,7 @@ def compute_portfolio_risk(weights: Dict[str, float], period: str = "2y") -> dic
     result = {
         "score": score,
         "level": level,
-        "normalized_weights": {k: round(v, 4) for k, v in w.to_dict().items()},
+        "normalized_weights": w.to_dict(),
         "reasons": [why for _, why in hits],
         "hits": hits,
         "dates": dates,
