@@ -25,6 +25,7 @@ export interface RiskAnalysis {
   correlation_matrix: CorrelationMatrix;
   concentration: ConcentrationMetrics;
   volatility: number;
+  parametric_var_95?: Record<1 | 10 | 21, number | null>;
   max_drawdown: number;
   sector_exposure: Record<string, number>;
   correlated_pairs: [string, string, number][];
