@@ -36,6 +36,7 @@ def test_risk_valid():
     assert "level" in data
     assert "concentration" in data
     assert "volatility" in data
+    assert "sharpe_ratio" in data
     assert "sector_exposure" in data
     assert "stress" in data
 

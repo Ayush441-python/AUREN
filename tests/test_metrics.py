@@ -1,8 +1,11 @@
+from math import sqrt
+
 import pandas as pd
 import pytest
 from engine.metrics import (
     concentration,
     volatility,
+    sharpe_ratio,
     max_drawdown,
     correlation,
     high_pairs,
@@ -24,6 +27,17 @@ def test_drawdown_known_case():
 
 def test_no_swings_no_volatility():
     assert volatility(pd.Series([0.01] * 10)) == pytest.approx(0)
+
+
+def test_sharpe_ratio_uses_excess_return_and_sample_volatility():
+    returns = pd.Series([0.012, -0.008] * 126)
+    expected = (returns.mean() - 0.0425 / 252) / returns.std() * sqrt(252)
+    assert sharpe_ratio(returns) == pytest.approx(expected)
+
+
+def test_sharpe_ratio_undefined_for_constant_returns():
+    assert sharpe_ratio(pd.Series([0.001] * 20)) is None
+    assert sharpe_ratio(pd.Series([0.001])) is None
 
 
 def test_perfectly_correlated_assets():

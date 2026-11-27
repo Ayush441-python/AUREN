@@ -34,12 +34,29 @@ export interface NavViewProps {
   onNavigateTab?: (tab: string) => void;
 }
 
+function estimateSharpeFromPrices(prices: number[] | undefined): number | null {
+  if (!prices || prices.length < 3) return null;
+  const returns: number[] = [];
+  for (let i = 1; i < prices.length; i++) {
+    const previous = prices[i - 1];
+    if (previous > 0) returns.push(prices[i] / previous - 1);
+  }
+  if (returns.length < 2) return null;
+  const mean = returns.reduce((sum, r) => sum + r, 0) / returns.length;
+  const variance =
+    returns.reduce((sum, r) => sum + (r - mean) ** 2, 0) / (returns.length - 1);
+  if (!(variance > 0)) return null;
+  return (mean * 252 - 0.0425) / (Math.sqrt(variance) * Math.sqrt(252));
+}
+
 /**
  * 1. Risk Metrics View (Sharpe, Sortino, Tail ratios, Parametric VaR)
  */
 export function RiskMetricsView({ data, portfolioName }: NavViewProps) {
   const annReturnEst = data.volatility * 0.65;
-  const sharpe = (annReturnEst / (data.volatility || 0.001)).toFixed(2);
+  const sharpeValue =
+    data.sharpe_ratio ?? estimateSharpeFromPrices(data.price_series?.Portfolio);
+  const sharpe = formatNumber(sharpeValue, 2);
   const sortino = (annReturnEst / (Math.abs(data.max_drawdown) * 0.5 || 0.001)).toFixed(2);
   const beta = "1.04";
   const calmar = (annReturnEst / (Math.abs(data.max_drawdown) || 0.001)).toFixed(2);

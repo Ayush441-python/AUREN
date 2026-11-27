@@ -14,6 +14,7 @@ from engine.metrics import (
     max_drawdown,
     portfolio_returns,
     sector_exposure,
+    sharpe_ratio,
     volatility,
 )
 from engine.report import ai_report, unverified_numbers
@@ -132,6 +133,7 @@ def compute_portfolio_risk(weights: Dict[str, float], period: str = "2y") -> dic
     conc = concentration(w)
     vol = finite(volatility(pr))
     mdd = finite(max_drawdown(pr))
+    sharpe = sharpe_ratio(pr)
 
     corr = correlation(prices, w.index).fillna(0.0)
     pairs = high_pairs(corr)
@@ -178,6 +180,7 @@ def compute_portfolio_risk(weights: Dict[str, float], period: str = "2y") -> dic
             "effective_assets": round(conc["effective_assets"], 2),
         },
         "volatility": round(vol, 4),
+        "sharpe_ratio": None if sharpe is None else round(sharpe, 4),
         "max_drawdown": round(mdd, 4),
         "sector_exposure": {k: round(v, 4) for k, v in exposure.to_dict().items()},
         "correlated_pairs": pairs,
