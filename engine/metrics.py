@@ -1,3 +1,6 @@
+from math import sqrt
+from statistics import NormalDist
+
 import numpy as np
 import pandas as pd
 from engine.universe import GROUPS
@@ -26,6 +29,17 @@ def portfolio_returns(prices: pd.DataFrame, w: pd.Series) -> pd.Series:
 
 def volatility(pr: pd.Series) -> float:
     return float(pr.std() * np.sqrt(252))  # annualised
+
+
+def parametric_var_95(pr: pd.Series) -> dict[str, float]:
+    """95% loss quantiles for additive, independent Gaussian session returns."""
+    daily_mean = float(pr.mean())
+    daily_std = float(pr.std())
+    z = NormalDist().inv_cdf(0.95)
+    return {
+        str(days): z * daily_std * sqrt(days) - daily_mean * days
+        for days in (1, 10, 21)
+    }
 
 
 def max_drawdown(pr: pd.Series) -> float:

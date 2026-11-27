@@ -118,9 +118,9 @@ export function RiskMetricsView({ data, portfolioName }: NavViewProps) {
             <tbody className="divide-y divide-[#1D2128] font-mono text-xs text-[#E4E6EA]">
               <tr>
                 <td className="py-3 font-medium text-[#F4F2ED]">Value at Risk (VaR 95%)</td>
-                <td className="py-3 text-[#D46B6B]">{formatPercent(data.volatility * 0.103)}</td>
-                <td className="py-3 text-[#D46B6B]">{formatPercent(data.volatility * 0.326)}</td>
-                <td className="py-3 text-[#D46B6B]">{formatPercent(data.volatility * 0.472)}</td>
+                <td className="py-3 text-[#D46B6B]">{formatPercent(data.parametric_var_95?.[1])}</td>
+                <td className="py-3 text-[#D46B6B]">{formatPercent(data.parametric_var_95?.[10])}</td>
+                <td className="py-3 text-[#D46B6B]">{formatPercent(data.parametric_var_95?.[21])}</td>
                 <td className="py-3 text-[#9299A3]">Parametric Gaussian</td>
               </tr>
               <tr>

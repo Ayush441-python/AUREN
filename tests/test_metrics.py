@@ -4,6 +4,7 @@ from engine.metrics import (
     concentration,
     volatility,
     max_drawdown,
+    parametric_var_95,
     correlation,
     high_pairs,
     sector_exposure,
@@ -24,6 +25,15 @@ def test_drawdown_known_case():
 
 def test_no_swings_no_volatility():
     assert volatility(pd.Series([0.01] * 10)) == pytest.approx(0)
+
+
+def test_parametric_var_scales_mean_and_volatility_differently():
+    returns = pd.Series([0.01, 0.03])
+    assert parametric_var_95(returns) == pytest.approx({
+        "1": 0.003261743,
+        "10": -0.126439910,
+        "21": -0.313401302,
+    }, abs=1e-6)
 
 
 def test_perfectly_correlated_assets():

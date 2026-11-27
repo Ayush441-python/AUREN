@@ -1,3 +1,5 @@
+import pandas as pd
+import pytest
 from fastapi.testclient import TestClient
 from backend.app.main import app
 
@@ -38,6 +40,26 @@ def test_risk_valid():
     assert "volatility" in data
     assert "sector_exposure" in data
     assert "stress" in data
+
+
+@pytest.mark.parametrize("daily_return", [-0.01, 0.0, 0.01])
+def test_risk_var_uses_portfolio_return_drift(monkeypatch, daily_return):
+    prices = pd.DataFrame(
+        {"AAPL": [100 * (1 + daily_return) ** day for day in range(40)]},
+        index=pd.bdate_range("2025-01-02", periods=40),
+    )
+    monkeypatch.setattr("backend.app.main.load_prices", lambda tickers, period: prices[tickers])
+
+    response = client.post("/risk", json={"weights": {"AAPL": 1}, "period": "1y"})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["volatility"] == 0
+    assert data["parametric_var_95"] == pytest.approx({
+        "1": -daily_return,
+        "10": -10 * daily_return,
+        "21": -21 * daily_return,
+    }, abs=1e-6)
 
 def test_risk_invalid_ticker():
     response = client.post("/risk", json={"weights": {"INVALID_TICKER_XYZ": 100}})
