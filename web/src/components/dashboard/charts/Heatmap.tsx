@@ -55,18 +55,25 @@ function cellAppearance(value: number, diagonal: boolean) {
   };
 }
 
+export function getInitialHeatmapSelection(matrix: CorrelationMatrix): Selection | null {
+  const columns = matrix.columns;
+  if (!columns.length) return null;
+  const targetColumnIndex = columns.length > 1 ? 1 : 0;
+  const value = matrix.data[0]?.[targetColumnIndex] ?? 0;
+  const diagonal = targetColumnIndex === 0;
+  return {
+    row: columns[0],
+    column: columns[targetColumnIndex],
+    value,
+    high: !diagonal && value > highThreshold,
+  };
+}
+
 export function Heatmap({ matrix }: HeatmapProps) {
   const columns = matrix.columns;
-  const [selected, setSelected] = useState<Selection | null>(() => {
-    if (!columns.length) return null;
-    const value = matrix.data[0]?.[1] ?? 0;
-    return {
-      row: columns[0],
-      column: columns[1] ?? columns[0],
-      value,
-      high: value > highThreshold,
-    };
-  });
+  const [selected, setSelected] = useState<Selection | null>(() =>
+    getInitialHeatmapSelection(matrix)
+  );
 
   if (!columns.length) {
     return (
