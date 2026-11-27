@@ -1,6 +1,7 @@
 import pathlib
 import threading
 import time
+import warnings
 
 import pandas as pd
 
@@ -41,6 +42,10 @@ def _cached(path: pathlib.Path, tickers: list[str]) -> pd.DataFrame:
     try:
         cached = pd.read_csv(path, index_col=0, parse_dates=True)
     except FileNotFoundError:
+        return pd.DataFrame()
+    except (pd.errors.EmptyDataError, pd.errors.ParserError, UnicodeError) as exc:
+        warnings.warn(f"Offline cache could not be parsed ({path}): {exc}",
+                      RuntimeWarning, stacklevel=2)
         return pd.DataFrame()
     return cached[[t for t in tickers if t in cached.columns]]
 
