@@ -25,6 +25,13 @@ import {
 import { cn } from "@/lib/cn";
 import type { RiskAnalysis } from "@/lib/types";
 import { formatNumber, formatPercent } from "@/lib/format";
+import {
+  classifyKurtosisRegime,
+  computeAdjustedExcessKurtosis,
+  computeAdjustedSkewness,
+  computeHorizonReturns,
+  formatSignedMoment,
+} from "@/lib/returnMoments";
 import { Button } from "@/components/ui/Button";
 
 // View Props interface for modular sub-views
@@ -43,6 +50,20 @@ export function RiskMetricsView({ data, portfolioName }: NavViewProps) {
   const sortino = (annReturnEst / (Math.abs(data.max_drawdown) * 0.5 || 0.001)).toFixed(2);
   const beta = "1.04";
   const calmar = (annReturnEst / (Math.abs(data.max_drawdown) || 0.001)).toFixed(2);
+
+  const portfolioSeries = data.price_series?.Portfolio ?? [];
+  const r1d = computeHorizonReturns(portfolioSeries, 1);
+  const r10d = computeHorizonReturns(portfolioSeries, 10);
+  const r1m = computeHorizonReturns(portfolioSeries, 21);
+
+  const skew1d = computeAdjustedSkewness(r1d);
+  const skew10d = computeAdjustedSkewness(r10d);
+  const skew1m = computeAdjustedSkewness(r1m);
+
+  const kurt1d = computeAdjustedExcessKurtosis(r1d);
+  const kurt10d = computeAdjustedExcessKurtosis(r10d);
+  const kurt1m = computeAdjustedExcessKurtosis(r1m);
+  const kurtRegime = classifyKurtosisRegime(kurt1d);
 
   return (
     <div className="space-y-6">
@@ -132,17 +153,17 @@ export function RiskMetricsView({ data, portfolioName }: NavViewProps) {
               </tr>
               <tr>
                 <td className="py-3 font-medium text-[#F4F2ED]">Skewness Coefficient</td>
-                <td className="py-3">-0.34</td>
-                <td className="py-3">-0.29</td>
-                <td className="py-3">-0.21</td>
+                <td className="py-3">{formatSignedMoment(skew1d)}</td>
+                <td className="py-3">{formatSignedMoment(skew10d)}</td>
+                <td className="py-3">{formatSignedMoment(skew1m)}</td>
                 <td className="py-3 text-[#9299A3]">Fisher-Pearson G1</td>
               </tr>
               <tr>
                 <td className="py-3 font-medium text-[#F4F2ED]">Excess Kurtosis</td>
-                <td className="py-3 text-[#D6B56D]">+2.18</td>
-                <td className="py-3 text-[#D6B56D]">+1.95</td>
-                <td className="py-3 text-[#D6B56D]">+1.42</td>
-                <td className="py-3 text-[#9299A3]">Leptokurtic (Fat Tails)</td>
+                <td className="py-3 text-[#D6B56D]">{formatSignedMoment(kurt1d)}</td>
+                <td className="py-3 text-[#D6B56D]">{formatSignedMoment(kurt10d)}</td>
+                <td className="py-3 text-[#D6B56D]">{formatSignedMoment(kurt1m)}</td>
+                <td className="py-3 text-[#9299A3]">{kurtRegime}</td>
               </tr>
             </tbody>
           </table>
