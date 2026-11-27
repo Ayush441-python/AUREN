@@ -107,3 +107,34 @@ def test_wallet_endpoint_shape(monkeypatch):
     assert data["portfolio"] == {"NVDA": 1.0}
     assert data["holdings"][0]["ticker"] == "NVDA"
     assert data["total_value"] == 200.0
+
+def test_risk_returns_a_valid_correlation_matrix(monkeypatch):
+    import numpy as np
+    import pandas as pd
+    import backend.app.main as api_module
+
+    # NVDA offsets the first two assets except for a small alternating residual.
+    daily_returns = np.tile([
+        [0.01, 0.01, -0.0199],
+        [-0.01, 0.01, -0.0001],
+        [0.01, -0.01, -0.0001],
+        [-0.01, -0.01, 0.0201],
+    ], (10, 1))
+    prices = pd.DataFrame(
+        100 * np.vstack([np.ones(3), (1 + daily_returns).cumprod(axis=0)]),
+        columns=["AAPL", "MSFT", "NVDA"],
+        index=pd.bdate_range("2026-01-05", periods=41),
+    )
+    monkeypatch.setattr(api_module, "load_prices", lambda tickers, period: prices[tickers])
+
+    response = client.post("/risk", json={"weights": dict.fromkeys(prices.columns, 1)})
+    assert response.status_code == 200
+    matrix = response.json()["correlation_matrix"]
+    published = np.asarray(matrix["data"])
+    realized = prices[matrix["columns"]].pct_change().dropna()
+    exposure = realized.std().to_numpy() / len(matrix["columns"])
+
+    assert np.linalg.eigvalsh(published).min() >= -1e-12
+    np.testing.assert_allclose(
+        exposure @ published @ exposure, realized.mean(axis=1).var(), rtol=1e-8, atol=1e-15
+    )
