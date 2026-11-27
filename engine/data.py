@@ -53,7 +53,8 @@ def _load(field: str, tickers: list[str], period: str,
     with _lock:
         hit = _memo.get(key)
         if hit and now - hit[0] < TTL_SECONDS:
-            return hit[1].copy()
+            cached = hit[1]
+            return cached[[t for t in tickers if t in cached.columns]].copy()
 
     df = _download(field, tickers, period)
     if df is None:
