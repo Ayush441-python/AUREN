@@ -1,6 +1,7 @@
 import re
 import sys
 from typing import Dict, List
+from urllib.parse import urlsplit
 import pandas as pd
 from fastapi import HTTPException, status
 
@@ -277,8 +278,18 @@ def inspect_wallet_address(address: str, rpc_url: str | None = None) -> dict:
     })
 
 
+def _is_loopback_model_endpoint(base_url: str) -> bool:
+    try:
+        endpoint = urlsplit(base_url)
+        return endpoint.scheme in {"http", "https"} and endpoint.hostname in {
+            "localhost", "127.0.0.1", "::1",
+        }
+    except ValueError:
+        return False
+
+
 def generate_report_narrative(metrics: dict, model: str, base_url: str, api_key: str) -> dict:
-    if not api_key:
+    if not api_key and not _is_loopback_model_endpoint(base_url):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="LLM API key is not configured. Please set LLM_API_KEY environment variable.",
