@@ -59,10 +59,17 @@ export function Heatmap({ matrix }: HeatmapProps) {
   const columns = matrix.columns;
   const [selected, setSelected] = useState<Selection | null>(() => {
     if (!columns.length) return null;
-    const value = matrix.data[0]?.[1] ?? 0;
+    // La pareja inicial tiene que salir de una celda que exista. Con una sola
+    // columna, `data[0][1]` no existe y el `?? 0` inventaba un 0.00 al lado del
+    // nombre de la diagonal, mientras la rejilla mostraba 1.00. Ahora el índice
+    // de columna es el mismo que el de fila cuando no hay segunda columna, así
+    // que el detalle enseña el coeficiente real. Ver #364.
+    const rowIndex = 0;
+    const columnIndex = columns.length > 1 ? 1 : 0;
+    const value = matrix.data?.[rowIndex]?.[columnIndex] ?? 0;
     return {
-      row: columns[0],
-      column: columns[1] ?? columns[0],
+      row: columns[rowIndex],
+      column: columns[columnIndex],
       value,
       high: value > highThreshold,
     };
