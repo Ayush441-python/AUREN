@@ -107,3 +107,30 @@ def test_wallet_endpoint_shape(monkeypatch):
     assert data["portfolio"] == {"NVDA": 1.0}
     assert data["holdings"][0]["ticker"] == "NVDA"
     assert data["total_value"] == 200.0
+
+
+def test_big_tech_stress_and_groups_alignment(monkeypatch):
+    """Verify /risk exposes authoritative GROUPS and Big Tech stress loss is -$1,800 (-18%) on $10,000."""
+    import numpy as np
+    import pandas as pd
+    import backend.app.main as api_module
+    from engine.stress import SCENARIOS, stress
+    from engine.universe import GROUPS
+
+    w_default = pd.Series({"NVDA": 0.40, "MSFT": 0.30, "GOOGL": 0.20, "ETH-USD": 0.10})
+    assert round(stress(w_default, SCENARIOS["Big Tech falls 20%"]), 4) == -0.1800
+    assert round(stress(pd.Series({"AAPL": 0.50, "MSFT": 0.50}), SCENARIOS["Big Tech falls 20%"]), 4) == -0.2000
+    assert round(stress(pd.Series({"XOM": 0.50, "ETH-USD": 0.50}), SCENARIOS["Big Tech falls 20%"]), 4) == 0.0
+
+    for t in ("NVDA", "MSFT", "AAPL", "GOOGL", "GOOG", "AMZN", "META", "AVGO", "ORCL", "NFLX"):
+        assert GROUPS.get(t) == "Big Tech"
+    for t in ("AMD", "INTC", "QCOM", "TSM"):
+        assert GROUPS.get(t) == "AI & Semiconductors"
+
+    idx = pd.date_range("2026-01-01", periods=30, freq="B")
+    prices = pd.DataFrame({t: 100.0 * (1 + 0.001 * np.arange(30)) for t in ("NVDA", "MSFT", "GOOGL", "ETH-USD")}, index=idx)
+    monkeypatch.setattr(api_module, "load_prices", lambda ts, period="2y": prices[list(ts)])
+    res = client.post("/risk", json={"weights": {"NVDA": 40, "MSFT": 30, "GOOGL": 20, "ETH-USD": 10}}).json()
+    assert res["groups"]["NVDA"] == "Big Tech"
+    assert res["group_exposure"]["Big Tech"] == 0.90
+    assert res["stress"]["Big Tech falls 20%"] == -0.1800

@@ -180,6 +180,8 @@ def compute_portfolio_risk(weights: Dict[str, float], period: str = "2y") -> dic
         "volatility": round(vol, 4),
         "max_drawdown": round(mdd, 4),
         "sector_exposure": {k: round(v, 4) for k, v in exposure.to_dict().items()},
+        "group_exposure": {k: round(v, 4) for k, v in exposure.to_dict().items()},
+        "groups": {t: GROUPS.get(t, "Other") for t in tickers},
         "correlated_pairs": pairs,
         "stress": {name: round(stress(w, s), 4) for name, s in SCENARIOS.items()},
         "worst_historical_periods": {
