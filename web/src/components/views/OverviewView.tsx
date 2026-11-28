@@ -38,7 +38,11 @@ export function OverviewView({
   onNavigateTab,
 }: OverviewViewProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const rankedHits = [...data.hits].sort((a, b) => b[0] - a[0]);
+  // Sort primary risk drivers by score impact descending, preserving rule order for ties
+  const rankedHits =
+    data.hits && data.hits.length > 0
+      ? [...data.hits].sort((a, b) => b[0] - a[0])
+      : (data.reasons || []).map((reason) => [0, reason] as [number, string]);
   const worstStress = Object.entries(data.stress).sort((a, b) => a[1] - b[1])[0];
   const worstDrawdown = Math.min(...(data.drawdown_series.length ? data.drawdown_series : [0]));
 
