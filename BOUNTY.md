@@ -45,32 +45,34 @@ Submissions are reviewed within 24 hours.
 
 **Payouts:** Directly in USDC on Base / Ethereum.
 
----
+## 🛠️ Bug Bounty Details
 
-## Bug Bounty: Out-of-order Preset Analyses Issue
+### Issue Summary
 
-### Summary
+The workstation's System Preferences page exposes editable covariance-window, VaR-confidence, and risk-free-rate controls, but all three are uncontrolled DOM fields. Changing them appears to work until the user navigates away: Risk Metrics still shows the original values, and returning to Settings resets every edit. There is no save/apply action or notice that these controls are nonfunctional.
 
-After startup has fully finished, selecting portfolio A and then B can display B's name with A's holdings and risk score, marked **Live Engine**, if A's response arrives last. Both requests succeed. The real preset menu remains usable while an analysis request is pending.
+### Steps to Reproduce
 
-### Reproduction Steps
+1. Open `/dashboard?tab=settings`.
+2. Change Covariance Estimation Window from 252 to 126 trading days.
+3. Change VaR Confidence Level from 95% to 99%.
+4. Change Risk-Free Benchmark Rate from 4.25% to 1.00%.
+5. Open Risk Metrics, then return to System Preferences.
 
-1. Open the workstation and let its initial analysis complete entirely.
-2. From the portfolio menu choose **Balanced Tech & Crypto** (A):
-   NVDA 40%, MSFT 30%, GOOGL 20%, ETH-USD 10%.
-3. Before A responds, reopen that same menu and choose **Magnificent 7 Tech Heavy** (B):
-   NVDA 25%, MSFT 20%, AAPL 20%, AMZN 15%, GOOGL 10%, META 10%.
-4. Let B succeed first, then A.
+### Expected Behavior
 
-### Expected vs. Actual Results
+Supported edits persist across in-app navigation and are used by the relevant analysis; otherwise, the UI must identify them as unavailable/read-only instead of suggesting they configure calculations.
 
-- **Expected:** The most recently selected B remains active with B's successful analysis. An obsolete success must not replace it.
-- **Actual:** B's name stays visible, but A's weights and score replace B's. The status is still live.
+### Actual Behavior
+
+The metric header still says Confidence 95.0%, the Sharpe card still says Rf = 4.25% (US 10Y), and Settings returns to 252 / 95 / 4.25%.
 
 ### Cause
 
-The issue arises because the `handleApplyPortfolio` function updates the name immediately but applies every successful awaited response without checking whether that request is still current. A stale request's finally block also clears loading regardless of a newer pending request.
+`SettingsView` has no state, event handlers, persistence, or configuration callback. Its two selects and defaultValue input can only change their own DOM values. `Workstation` conditionally mounts `<SettingsView />`; it holds no shared model-settings state. `RiskMetricsView` hardcodes the displayed confidence and Rf.
 
 ### Proposed Solution
 
-Implement a request ID mechanism to ensure that only the latest request's response updates the UI. Here’s a suggested implementation:
+Implement state management for the `SettingsView` component to persist user inputs and update the `RiskMetricsView` accordingly.
+
+### Code Implementation
