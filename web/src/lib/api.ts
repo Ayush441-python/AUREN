@@ -1,3 +1,4 @@
+import { resolveApiBase } from "./apiBase";
 import {
   RiskAnalysis,
   LiquidityAnalysis,
@@ -6,16 +7,12 @@ import {
   UniverseData,
 } from "./types";
 
-const getApiBase = (): string => {
-  if (typeof window !== "undefined") {
-    const saved = localStorage.getItem("auren_api_url");
-    if (saved) return saved.replace(/\/+$/, "");
-    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-      return "http://127.0.0.1:8000";
-    }
-  }
-  return process.env.NEXT_PUBLIC_API_URL || "https://auren-api-8yrq.onrender.com";
-};
+const getApiBase = (): string =>
+  resolveApiBase({
+    saved: typeof window === "undefined" ? null : localStorage.getItem("auren_api_url"),
+    envUrl: process.env.NEXT_PUBLIC_API_URL,
+    hostname: typeof window === "undefined" ? null : window.location.hostname,
+  });
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const base = getApiBase();
