@@ -1,3 +1,4 @@
+import logging
 import pathlib
 import threading
 import time
@@ -18,6 +19,7 @@ VOL_CACHE = ROOT / "volume.csv"
 TTL_SECONDS = 3600
 _memo: dict = {}
 _lock = threading.Lock()
+_logger = logging.getLogger(__name__)
 
 
 def _download(field: str, tickers: list[str], period: str) -> pd.DataFrame | None:
@@ -41,6 +43,9 @@ def _cached(path: pathlib.Path, tickers: list[str]) -> pd.DataFrame:
     try:
         cached = pd.read_csv(path, index_col=0, parse_dates=True)
     except FileNotFoundError:
+        return pd.DataFrame()
+    except (pd.errors.EmptyDataError, pd.errors.ParserError, UnicodeDecodeError) as exc:
+        _logger.warning("Ignoring unreadable data cache %s: %s", path, exc)
         return pd.DataFrame()
     return cached[[t for t in tickers if t in cached.columns]]
 
