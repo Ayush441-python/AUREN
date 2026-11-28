@@ -8,6 +8,7 @@ SCENARIOS = {
     "Big Tech falls 20%": {"Big Tech": -0.20},
     "Chip selloff (semis fall 25%)": {"Semiconductors": -0.25,
                                       "Semiconductor Equipment": -0.25,
+                                      "Semiconductor Equipment & Materials": -0.25,
                                       "Memory Chips": -0.25},
     "NVDA falls 15%": {"NVDA": -0.15},
     "Crypto crash 40%": {"Crypto": -0.40},
