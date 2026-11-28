@@ -26,6 +26,16 @@ import { cn } from "@/lib/cn";
 import type { RiskAnalysis } from "@/lib/types";
 import { formatNumber, formatPercent } from "@/lib/format";
 import { Button } from "@/components/ui/Button";
+import {
+  computeEwmaAnnualizedVolatility,
+  computeRealizedVolOfVol,
+  computeSimpleReturns,
+} from "@/lib/volatilityMetrics";
+
+/** RiskMetrics decay for the second-order view (#398). */
+const EWMA_LAMBDA = 0.94;
+/** Rolling window, in sessions, for the realised volatility-of-volatility. */
+const VOL_OF_VOL_WINDOW = 21;
 
 // View Props interface for modular sub-views
 export interface NavViewProps {
@@ -262,6 +272,14 @@ export function MarketOverviewView({ data }: NavViewProps) {
  * 3. Volatility Analysis View
  */
 export function VolatilityAnalysisView({ data }: NavViewProps) {
+  // Segunda capa de volatilidad calculada de la serie que ya manda el API: antes
+  // esto eran dos literales (λ = 0.94 y VVIX = 88.4) que no cambiaban nunca,
+  // ni siquiera para una cartera plana. Ver #398.
+  const portfolioPrices = data.price_series?.Portfolio ?? [];
+  const portfolioReturns = computeSimpleReturns(portfolioPrices);
+  const ewmaVol = computeEwmaAnnualizedVolatility(portfolioReturns, EWMA_LAMBDA);
+  const volOfVol = computeRealizedVolOfVol(portfolioReturns, VOL_OF_VOL_WINDOW);
+  const percentOrDash = (value: number | null) => (value === null ? "—" : formatPercent(value));
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-[#272B33] bg-[#12151B] p-5">
@@ -288,17 +306,25 @@ export function VolatilityAnalysisView({ data }: NavViewProps) {
         </div>
         <div className="rounded-xl border border-[#272B33] bg-[#12151B] p-4">
           <span className="font-mono text-[10px] uppercase text-[#9299A3]">
-            EWMA Decay Parameter (λ)
+            EWMA Volatility (λ = {EWMA_LAMBDA})
           </span>
-          <p className="mt-2 font-mono text-2xl font-bold text-[#D6B56D]">0.94</p>
-          <span className="mt-1 block text-[10px] text-[#636B75]">RiskMetrics benchmark specification</span>
+          <p className="mt-2 font-mono text-2xl font-bold text-[#D6B56D]">
+            {percentOrDash(ewmaVol)}
+          </p>
+          <span className="mt-1 block text-[10px] text-[#636B75]">
+            RiskMetrics recursive variance, annualised
+          </span>
         </div>
         <div className="rounded-xl border border-[#272B33] bg-[#12151B] p-4">
           <span className="font-mono text-[10px] uppercase text-[#9299A3]">
-            Volatility of Volatility (VVIX)
+            Volatility of Volatility ({VOL_OF_VOL_WINDOW}d realised)
           </span>
-          <p className="mt-2 font-mono text-2xl font-bold text-[#F4F2ED]">88.4</p>
-          <span className="mt-1 block text-[10px] text-[#636B75]">Kurtosis of variance swap</span>
+          <p className="mt-2 font-mono text-2xl font-bold text-[#F4F2ED]">
+            {percentOrDash(volOfVol)}
+          </p>
+          <span className="mt-1 block text-[10px] text-[#636B75]">
+            Sample std of rolling {VOL_OF_VOL_WINDOW}-session annualised volatility
+          </span>
         </div>
       </div>
 
