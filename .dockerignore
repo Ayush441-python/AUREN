@@ -1,0 +1,36 @@
+# Virtual Environment & Python bytecode
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environment files with secrets
+.env
+.env.local
+
+# Git & IDEs
+.git/
+.gitignore
+.vscode/
+.idea/
+.devcontainer/
+
+# Streamlit specific
+.streamlit/
+app.py
+
+# Not needed by the API image
+scripts/
+conftest.py
+web/
+frontend/
+
+# Tests & Docs
+tests/
+*.md

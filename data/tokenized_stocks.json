@@ -1,0 +1,112 @@
+[
+  {
+    "symbol": "NVDAc",
+    "ticker": "NVDA",
+    "name": "NVIDIA Corp (Coinbase Tokenized Stock)",
+    "contract_address": "0xb20000000000000000000078ee7ce2fe4908108c",
+    "decimals": 8,
+    "nav_price": 156.14,
+    "multiplier": 1.0,
+    "isin": "US67066G1040",
+    "nav_price_updated_at": "2026-11-17T21:00:00Z"
+  },
+  {
+    "symbol": "AAPLc",
+    "ticker": "AAPL",
+    "name": "Apple Inc (Coinbase Tokenized Stock)",
+    "contract_address": "0xb200000000000000000000c2e324d24d7eecd1fb",
+    "decimals": 8,
+    "nav_price": 352.78,
+    "multiplier": 1.0,
+    "isin": "US0378331005",
+    "nav_price_updated_at": "2026-11-17T21:00:00Z"
+  },
+  {
+    "symbol": "MSFTc",
+    "ticker": "MSFT",
+    "name": "Microsoft Corp (Coinbase Tokenized Stock)",
+    "contract_address": "0xb200000000000000000000ab99cfa739e253872b",
+    "decimals": 8,
+    "nav_price": 517.99,
+    "multiplier": 1.0,
+    "isin": "US5949181045",
+    "nav_price_updated_at": "2026-11-17T21:00:00Z"
+  },
+  {
+    "symbol": "AMZNc",
+    "ticker": "AMZN",
+    "name": "Amazon.com Inc (Coinbase Tokenized Stock)",
+    "contract_address": "0xb200000000000000000000d9192b6b456483c2e8",
+    "decimals": 8,
+    "nav_price": 257.75,
+    "multiplier": 1.0,
+    "isin": "US0231351067",
+    "nav_price_updated_at": "2026-11-17T21:00:00Z"
+  },
+  {
+    "symbol": "GOOGLc",
+    "ticker": "GOOGL",
+    "name": "Alphabet Inc Class A (Coinbase Tokenized Stock)",
+    "contract_address": "0xb2000000000000000000002d0ba3164cc74f58b7",
+    "decimals": 8,
+    "nav_price": 283.72,
+    "multiplier": 1.0,
+    "isin": "US02079K3059",
+    "nav_price_updated_at": "2026-11-17T21:00:00Z"
+  },
+  {
+    "symbol": "METAc",
+    "ticker": "META",
+    "name": "Meta Platforms Inc (Coinbase Tokenized Stock)",
+    "contract_address": "0xb2000000000000000000008bc8786b856e61707c",
+    "decimals": 8,
+    "nav_price": 626.41,
+    "multiplier": 1.0,
+    "isin": "US30303M1027",
+    "nav_price_updated_at": "2026-11-17T21:00:00Z"
+  },
+  {
+    "symbol": "TSLAc",
+    "ticker": "TSLA",
+    "name": "Tesla Inc (Coinbase Tokenized Stock)",
+    "contract_address": "0xb2000000000000000000001e800a7f5189430cd0",
+    "decimals": 8,
+    "nav_price": 379.74,
+    "multiplier": 1.0,
+    "isin": "US88160R1014",
+    "nav_price_updated_at": "2026-11-17T21:00:00Z"
+  },
+  {
+    "symbol": "COINc",
+    "ticker": "COIN",
+    "name": "Coinbase Global Inc (Coinbase Tokenized Stock)",
+    "contract_address": "0xb200000000000000000000c85a31389d71f3ecfb",
+    "decimals": 8,
+    "nav_price": 310.00,
+    "multiplier": 1.0,
+    "isin": "US19260Q1076",
+    "nav_price_updated_at": "2026-11-17T21:00:00Z"
+  },
+  {
+    "symbol": "PLTRc",
+    "ticker": "PLTR",
+    "name": "Palantir Technologies (Coinbase Tokenized Stock)",
+    "contract_address": "0xb2000000000000000000007d16372840df4dabbe",
+    "decimals": 8,
+    "nav_price": 160.39,
+    "multiplier": 1.0,
+    "isin": "US69608A1088",
+    "nav_price_updated_at": "2026-11-17T21:00:00Z"
+  },
+  {
+    "symbol": "MSTRc",
+    "ticker": "MSTR",
+    "name": "Strategy Inc (Coinbase Tokenized Stock)",
+    "contract_address": "0xb2000000000000000000004884b426556b92883d",
+    "decimals": 8,
+    "nav_price": 385.00,
+    "multiplier": 1.0,
+    "isin": "US5949724083",
+    "nav_price_updated_at": "2026-11-17T21:00:00Z"
+  }
+]
