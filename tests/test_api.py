@@ -107,3 +107,19 @@ def test_wallet_endpoint_shape(monkeypatch):
     assert data["portfolio"] == {"NVDA": 1.0}
     assert data["holdings"][0]["ticker"] == "NVDA"
     assert data["total_value"] == 200.0
+
+def test_risk_rejects_periods_the_provider_cannot_serve():
+    """#405: a zero-padded or zero-length period used to pass validation and be
+    answered with the bundled two-year cache instead of the asked window."""
+    for period in ("01y", "02y", "03mo", "06mo", "0y", "00y", "0mo", "02mo"):
+        response = client.post("/risk", json={"weights": {"AAPL": 100}, "period": period})
+        assert response.status_code == 422, period
+        assert response.json()["detail"][0]["type"] == "string_pattern_mismatch", period
+
+
+def test_risk_accepts_the_documented_periods():
+    from backend.app.schemas.requests import PERIOD_PATTERN
+    import re
+    pattern = re.compile(PERIOD_PATTERN)
+    for period in ("1y", "2y", "5y", "3mo", "6mo", "12mo", "ytd", "max"):
+        assert pattern.match(period), period
