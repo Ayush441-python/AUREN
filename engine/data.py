@@ -12,6 +12,7 @@ except ImportError:
 ROOT = pathlib.Path(__file__).parent.parent / "data"
 CACHE = ROOT / "prices.csv"
 VOL_CACHE = ROOT / "volume.csv"
+STABLECOINS = {"USDC", "USDT", "DAI", "USD", "BUSD"}
 
 # In-memory cache so /risk, /liquidity and the what-if tab do not each hit
 # Yahoo Finance again for the same tickers (slow, and Yahoo rate-limits).
@@ -45,6 +46,17 @@ def _cached(path: pathlib.Path, tickers: list[str]) -> pd.DataFrame:
     return cached[[t for t in tickers if t in cached.columns]]
 
 
+def _reference_index(cache_path: pathlib.Path) -> pd.DatetimeIndex:
+    """Return cached market date index (or 252 business days) for 100%-stablecoin portfolios."""
+    try:
+        idx = pd.read_csv(cache_path, index_col=0, parse_dates=True).index
+        if len(idx) > 0:
+            return pd.DatetimeIndex(idx)
+    except FileNotFoundError:
+        pass
+    return pd.date_range(end=pd.Timestamp.today().normalize(), periods=252, freq="B")
+
+
 def _load(field: str, tickers: list[str], period: str,
           cache_path: pathlib.Path) -> pd.DataFrame:
     tickers = list(dict.fromkeys(tickers))
@@ -55,19 +67,32 @@ def _load(field: str, tickers: list[str], period: str,
         if hit and now - hit[0] < TTL_SECONDS:
             return hit[1].copy()
 
-    df = _download(field, tickers, period)
-    if df is None:
-        df = _cached(cache_path, tickers)
+    non_stable = [t for t in tickers if t not in STABLECOINS]
+    stable = [t for t in tickers if t in STABLECOINS]
+
+    if non_stable:
+        df = _download(field, non_stable, period)
+        if df is None:
+            df = _cached(cache_path, non_stable)
+        else:
+            # Yahoo skipped some tickers: backfill them from the bundled CSV cache.
+            missing = [t for t in non_stable if t not in df.columns]
+            if missing:
+                fill = _cached(cache_path, missing)
+                if not fill.empty:
+                    try:
+                        df = df.join(fill, how="left")
+                    except Exception:
+                        pass
     else:
-        # Yahoo skipped some tickers: backfill them from the bundled CSV cache.
-        missing = [t for t in tickers if t not in df.columns]
-        if missing:
-            fill = _cached(cache_path, missing)
-            if not fill.empty:
-                try:
-                    df = df.join(fill, how="left")
-                except Exception:
-                    pass
+        df = pd.DataFrame(index=_reference_index(cache_path))
+
+    if stable and not df.index.empty:
+        # Dollar-pegged stablecoins resolve to $1.00 Close instead of colliding with
+        # unrelated equities (e.g. OTC stock "USDC" = US Data Corp on Yahoo Finance).
+        fill_val = 1.0 if field == "Close" else 5_000_000_000.0
+        for st in stable:
+            df[st] = fill_val
 
     df = df[[t for t in tickers if t in df.columns]]
     if not df.empty:
