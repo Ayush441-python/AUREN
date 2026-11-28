@@ -50,6 +50,9 @@ export function useWallet() {
     if (!eth) return;
 
     let active = true;
+    let accountsEventSeen = false;
+    let chainEventSeen = false;
+
     queueMicrotask(() => {
       if (active) setHasProvider(true);
     });
@@ -57,7 +60,7 @@ export function useWallet() {
     eth
       .request<string[]>({ method: "eth_accounts" })
       .then((accounts) => {
-        if (!active) return;
+        if (!active || accountsEventSeen) return;
         if (accounts && accounts.length > 0) {
           setAddress(accounts[0]);
         }
@@ -67,12 +70,14 @@ export function useWallet() {
     eth
       .request<string>({ method: "eth_chainId" })
       .then((id) => {
-        if (active) setChainId(id);
+        if (!active || chainEventSeen) return;
+        setChainId(id);
       })
       .catch(() => {});
 
     const handleAccountsChanged = (accounts: string[]) => {
       if (!active) return;
+      accountsEventSeen = true;
       if (accounts && accounts.length > 0) {
         setAddress(accounts[0]);
       } else {
@@ -81,7 +86,9 @@ export function useWallet() {
     };
 
     const handleChainChanged = (id: string) => {
-      if (active) setChainId(id);
+      if (!active) return;
+      chainEventSeen = true;
+      setChainId(id);
     };
 
     eth.on?.("accountsChanged", handleAccountsChanged);
