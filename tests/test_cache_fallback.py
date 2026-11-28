@@ -29,12 +29,12 @@ def test_missing_file_still_returns_an_empty_frame(tmp_path):
     assert df.empty
 
 
-def test_truncated_csv_returns_an_empty_frame(tmp_path):
-    # Una fila con menos campos de los que pide la cabecera: ParserError.
-    truncated = tmp_path / "prices.csv"
-    truncated.write_text("Date,NVDA,MSFT\n2026-01-02\n", encoding="utf-8")
+def test_malformed_csv_returns_an_empty_frame(tmp_path):
+    # Una fila con más campos que la cabecera: eso sí es ParserError en pandas.
+    malformed = tmp_path / "prices.csv"
+    malformed.write_text("Date,NVDA\n2026-01-02,100,200\n", encoding="utf-8")
 
-    df = _cached(truncated, ["NVDA"])
+    df = _cached(malformed, ["NVDA"])
 
     assert df.empty
 
