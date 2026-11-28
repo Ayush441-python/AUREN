@@ -13,6 +13,8 @@ ROOT = pathlib.Path(__file__).parent.parent / "data"
 CACHE = ROOT / "prices.csv"
 VOL_CACHE = ROOT / "volume.csv"
 
+STABLECOIN_TICKERS = {"USDC", "USDT", "DAI", "USD", "BUSD"}
+
 # In-memory cache so /risk, /liquidity and the what-if tab do not each hit
 # Yahoo Finance again for the same tickers (slow, and Yahoo rate-limits).
 TTL_SECONDS = 3600
@@ -55,19 +57,45 @@ def _load(field: str, tickers: list[str], period: str,
         if hit and now - hit[0] < TTL_SECONDS:
             return hit[1].copy()
 
-    df = _download(field, tickers, period)
-    if df is None:
-        df = _cached(cache_path, tickers)
+    stable_tickers = [t for t in tickers if t in STABLECOIN_TICKERS]
+    market_tickers = [t for t in tickers if t not in STABLECOIN_TICKERS]
+
+    if market_tickers:
+        df = _download(field, market_tickers, period)
+        if df is None:
+            df = _cached(cache_path, market_tickers)
+        else:
+            # Yahoo skipped some tickers: backfill them from the bundled CSV cache.
+            missing = [t for t in market_tickers if t not in df.columns]
+            if missing:
+                fill = _cached(cache_path, missing)
+                if not fill.empty:
+                    try:
+                        df = df.join(fill, how="left")
+                    except Exception:
+                        pass
+        if df is not None and not df.empty:
+            df = df[[t for t in market_tickers if t in df.columns]]
+        else:
+            df = pd.DataFrame()
     else:
-        # Yahoo skipped some tickers: backfill them from the bundled CSV cache.
-        missing = [t for t in tickers if t not in df.columns]
-        if missing:
-            fill = _cached(cache_path, missing)
-            if not fill.empty:
-                try:
-                    df = df.join(fill, how="left")
-                except Exception:
-                    pass
+        df = pd.DataFrame()
+
+    if stable_tickers:
+        if df.empty:
+            # Align dates with bundled cache (e.g. SPY dates) when a portfolio is 100% stablecoin
+            try:
+                cached_df = pd.read_csv(cache_path, index_col=0, parse_dates=True)
+                if not cached_df.empty:
+                    df = pd.DataFrame(index=cached_df.index)
+                else:
+                    df = pd.DataFrame(index=pd.date_range(end=pd.Timestamp.now(), periods=504, freq="B"))
+            except Exception:
+                df = pd.DataFrame(index=pd.date_range(end=pd.Timestamp.now(), periods=504, freq="B"))
+
+        val = 1.0 if field == "Close" else 5_000_000_000.0
+        for s in stable_tickers:
+            df[s] = val
 
     df = df[[t for t in tickers if t in df.columns]]
     if not df.empty:
