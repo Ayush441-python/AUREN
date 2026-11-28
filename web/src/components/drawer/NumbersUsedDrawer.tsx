@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Calculator, Check, Copy, ShieldCheck, X } from "lucide-react";
 import { formatNumber, formatPercent, formatSignedPercent } from "@/lib/format";
-import { cn } from "@/lib/cn";
 import type { RiskAnalysis } from "@/lib/types";
 import { Button } from "@/components/ui/Button";
 import { CodeBlock } from "@/components/ui/CodeBlock";
@@ -88,52 +87,38 @@ export function NumbersUsedDrawer({ isOpen, onClose, data }: NumbersUsedDrawerPr
       value: data.concentration.top_asset,
       measured: formatPercent(data.concentration.top_weight),
       condition: "> 30%",
-      points: 20,
-      triggered: data.concentration.top_weight > 0.3,
     },
     {
       label: "Effective assets",
       value: formatNumber(data.concentration.effective_assets, 2),
       measured: "1 / HHI",
       condition: "< 4",
-      points: 15,
-      triggered: data.concentration.effective_assets < 4,
     },
     {
       label: "Annualized volatility",
       value: formatPercent(data.volatility),
       measured: "σdaily × √252",
       condition: "> 30%",
-      points: 20,
-      triggered: data.volatility > 0.3,
     },
     {
       label: "Maximum drawdown",
       value: formatSignedPercent(data.max_drawdown),
       measured: "min(Pₜ / peak − 1)",
       condition: "< −30%",
-      points: 15,
-      triggered: data.max_drawdown < -0.3,
     },
     {
       label: "Pairs above threshold",
       value: String(data.correlated_pairs.length),
       measured: "Pearson r, simple returns",
       condition: "≥ 2 pairs, r > 0.70",
-      points: 15,
-      triggered: data.correlated_pairs.length >= 2,
     },
     {
       label: "Largest sector",
       value: maxSector?.[0] ?? "—",
       measured: maxSector ? formatPercent(maxSector[1]) : "—",
       condition: "> 50%",
-      points: 15,
-      triggered: (maxSector?.[1] ?? 0) > 0.5,
     },
   ];
-
-  const triggeredPoints = rows.reduce((sum, row) => sum + (row.triggered ? row.points : 0), 0);
 
   return (
     <div className="fixed inset-0 z-[100] flex justify-end">
@@ -162,7 +147,7 @@ export function NumbersUsedDrawer({ isOpen, onClose, data }: NumbersUsedDrawerPr
                 Numbers used
               </h2>
               <p className="mt-2 text-xs leading-relaxed text-muted">
-                Exact inputs, thresholds, and rule contributions behind the current score.
+                Measured values, rule thresholds, and the penalties applied by the scoring engine.
               </p>
             </div>
           </div>
@@ -180,16 +165,16 @@ export function NumbersUsedDrawer({ isOpen, onClose, data }: NumbersUsedDrawerPr
           <div className="border border-positive/25 bg-positive/[0.04] px-4 py-4">
             <p className="flex items-center gap-2 font-mono text-[0.62rem] uppercase tracking-[0.16em] text-positive">
               <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5" />
-              Deterministic rule proof
+              Scoring summary
             </p>
             <p className="mt-2 text-xs leading-relaxed text-muted">
-              The rule total is {triggeredPoints} points. The analysis reports {data.score} points
+              The analysis reports {data.score} points
               in the {data.level} tier. Tiers are 0–34 Low, 35–64 Medium, and 65–100 High.
             </p>
           </div>
 
           <div>
-            <p className="auren-eyebrow mb-3">Scored inputs</p>
+            <p className="auren-eyebrow mb-3">Rule reference</p>
             <div className="auren-scrollbar-none overflow-x-auto border border-line">
               <table className="w-full min-w-[620px] text-left text-xs">
                 <caption className="sr-only">Risk scoring rules and measured values</caption>
@@ -198,12 +183,11 @@ export function NumbersUsedDrawer({ isOpen, onClose, data }: NumbersUsedDrawerPr
                     <th scope="col" className="px-3 py-3 font-mono text-[0.58rem] uppercase tracking-[0.14em]">Rule</th>
                     <th scope="col" className="px-3 py-3 font-mono text-[0.58rem] uppercase tracking-[0.14em]">Measured</th>
                     <th scope="col" className="px-3 py-3 font-mono text-[0.58rem] uppercase tracking-[0.14em]">Condition</th>
-                    <th scope="col" className="px-3 py-3 font-mono text-[0.58rem] uppercase tracking-[0.14em]">Points</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line/60">
                   {rows.map((row) => (
-                    <tr key={row.label} className={cn(row.triggered && "bg-negative/[0.03]")}>
+                    <tr key={row.label}>
                       <th scope="row" className="px-3 py-3 font-normal text-primary">
                         {row.label}
                       </th>
@@ -212,14 +196,6 @@ export function NumbersUsedDrawer({ isOpen, onClose, data }: NumbersUsedDrawerPr
                         <span className="ml-2 text-faint">{row.measured}</span>
                       </td>
                       <td className="px-3 py-3 font-mono text-muted">{row.condition}</td>
-                      <td
-                        className={cn(
-                          "px-3 py-3 font-mono tabular",
-                          row.triggered ? "text-negative" : "text-faint"
-                        )}
-                      >
-                        {row.triggered ? `+${row.points}` : "+0"}
-                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -228,7 +204,10 @@ export function NumbersUsedDrawer({ isOpen, onClose, data }: NumbersUsedDrawerPr
           </div>
 
           <div>
-            <p className="auren-eyebrow mb-3">Engine hits</p>
+            <p className="auren-eyebrow mb-3">Applied penalties</p>
+            <p className="mb-3 text-xs text-muted">
+              The scoring engine applies rules before the measured values are rounded for display.
+            </p>
             {data.hits.length ? (
               <ol className="space-y-2">
                 {data.hits.map(([points, reason], index) => (
