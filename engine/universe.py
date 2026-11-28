@@ -185,12 +185,13 @@ def classify_and_register_ticker(ticker: str) -> Tuple[str, str]:
     sector = "General Equities"
     group = "General Equities"
 
-    if t.endswith("-USD") or t in {"BTC", "ETH", "SOL", "DOGE", "AVAX", "CBBTC"}:
-        sector = "Crypto"
-        group = "Crypto"
-    elif t in {"USDC", "USDT", "DAI", "USD", "BUSD"}:
+    stablecoins = {"USDC", "USDT", "DAI", "USD", "BUSD", "PYUSD"}
+    if t in stablecoins or (t.endswith("-USD") and t[:-4] in stablecoins):
         sector = "Stablecoin"
         group = "Cash & Stablecoins"
+    elif t.endswith("-USD") or t in {"BTC", "ETH", "SOL", "DOGE", "AVAX", "CBBTC"}:
+        sector = "Crypto"
+        group = "Crypto"
     elif t in {"SPY", "QQQ", "IWM", "DIA", "VOO", "VTI", "IVV"}:
         sector = "Index ETF"
         group = "Broad Market ETFs"
