@@ -37,6 +37,9 @@ def _download(field: str, tickers: list[str], period: str) -> pd.DataFrame | Non
     return None
 
 
+STABLECOINS = {"USDC", "USDT", "DAI", "USD", "BUSD"}
+
+
 def _cached(path: pathlib.Path, tickers: list[str]) -> pd.DataFrame:
     try:
         cached = pd.read_csv(path, index_col=0, parse_dates=True)
@@ -55,19 +58,39 @@ def _load(field: str, tickers: list[str], period: str,
         if hit and now - hit[0] < TTL_SECONDS:
             return hit[1].copy()
 
-    df = _download(field, tickers, period)
-    if df is None:
-        df = _cached(cache_path, tickers)
+    stable_tickers = [t for t in tickers if t.upper() in STABLECOINS]
+    query_tickers = [t for t in tickers if t.upper() not in STABLECOINS]
+
+    if query_tickers:
+        df = _download(field, query_tickers, period)
+        if df is None:
+            df = _cached(cache_path, query_tickers)
+        else:
+            # Yahoo skipped some tickers: backfill them from the bundled CSV cache.
+            missing = [t for t in query_tickers if t not in df.columns]
+            if missing:
+                fill = _cached(cache_path, missing)
+                if not fill.empty:
+                    try:
+                        df = df.join(fill, how="left")
+                    except Exception:
+                        pass
     else:
-        # Yahoo skipped some tickers: backfill them from the bundled CSV cache.
-        missing = [t for t in tickers if t not in df.columns]
-        if missing:
-            fill = _cached(cache_path, missing)
-            if not fill.empty:
-                try:
-                    df = df.join(fill, how="left")
-                except Exception:
-                    pass
+        df = pd.DataFrame()
+
+    if stable_tickers:
+        if df.empty or df.index.empty:
+            try:
+                cached_idx = pd.read_csv(cache_path, index_col=0, parse_dates=True).index
+                df = pd.DataFrame(index=cached_idx)
+            except Exception:
+                idx = pd.bdate_range(end=pd.Timestamp.today().normalize(), periods=252)
+                df = pd.DataFrame(index=idx)
+        for s in stable_tickers:
+            if field == "Close":
+                df[s] = 1.0
+            else:
+                df[s] = 5_000_000_000.0
 
     df = df[[t for t in tickers if t in df.columns]]
     if not df.empty:

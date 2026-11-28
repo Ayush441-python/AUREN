@@ -11,7 +11,8 @@ def avg_daily_value(prices: pd.DataFrame, volumes: pd.DataFrame,
         if t not in volumes.columns:
             continue
         vol = volumes[t].dropna()
-        traded = vol if t.endswith("-USD") else (prices[t] * vol).dropna()
+        is_dollar = t.endswith("-USD") or t.upper() in {"USDC", "USDT", "DAI", "USD", "BUSD"}
+        traded = vol if is_dollar else (prices[t] * vol).dropna()
         out[t] = float(traded.tail(window).mean())
     return pd.Series(out, dtype=float)
 
