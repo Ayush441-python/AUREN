@@ -3,12 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   typescript: {
-    // Allows production builds to successfully finish even with minor type discrepancies
     ignoreBuildErrors: false,
-  },
-  eslint: {
-    // Allows production builds on Vercel to pass while code formatting/warnings are cleaned up
-    ignoreDuringBuilds: true,
   },
   async redirects() {
     return [
