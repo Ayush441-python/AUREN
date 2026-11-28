@@ -46,17 +46,19 @@ def _cached(path: pathlib.Path, tickers: list[str]) -> pd.DataFrame:
 
 
 def _load(field: str, tickers: list[str], period: str,
-          cache_path: pathlib.Path) -> pd.DataFrame:
+          cache_path: pathlib.Path, *, require_download: bool = False) -> pd.DataFrame:
     tickers = list(dict.fromkeys(tickers))
     key = (field, tuple(sorted(tickers)), period)
     now = time.time()
     with _lock:
         hit = _memo.get(key)
-        if hit and now - hit[0] < TTL_SECONDS:
+        if not require_download and hit and now - hit[0] < TTL_SECONDS:
             return hit[1].copy()
 
     df = _download(field, tickers, period)
     if df is None:
+        if require_download:
+            return pd.DataFrame()
         df = _cached(cache_path, tickers)
     else:
         # Yahoo skipped some tickers: backfill them from the bundled CSV cache.
@@ -76,9 +78,9 @@ def _load(field: str, tickers: list[str], period: str,
     return df.copy()
 
 
-def load_prices(tickers: list[str], period: str = "2y") -> pd.DataFrame:
-    return _load("Close", tickers, period, CACHE)
+def load_prices(tickers: list[str], period: str = "2y", *, require_download: bool = False) -> pd.DataFrame:
+    return _load("Close", tickers, period, CACHE, require_download=require_download)
 
 
-def load_volumes(tickers: list[str], period: str = "2y") -> pd.DataFrame:
-    return _load("Volume", tickers, period, VOL_CACHE)
+def load_volumes(tickers: list[str], period: str = "2y", *, require_download: bool = False) -> pd.DataFrame:
+    return _load("Volume", tickers, period, VOL_CACHE, require_download=require_download)
