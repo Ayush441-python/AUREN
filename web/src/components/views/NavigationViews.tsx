@@ -26,6 +26,13 @@ import { cn } from "@/lib/cn";
 import type { RiskAnalysis } from "@/lib/types";
 import { formatNumber, formatPercent } from "@/lib/format";
 import { Button } from "@/components/ui/Button";
+import {
+  computeAdjustedSkewness,
+  computeExcessKurtosis,
+  formatMoment,
+  horizonReturns,
+  simpleReturns,
+} from "@/lib/moments";
 
 // View Props interface for modular sub-views
 export interface NavViewProps {
@@ -38,6 +45,12 @@ export interface NavViewProps {
  * 1. Risk Metrics View (Sharpe, Sortino, Tail ratios, Parametric VaR)
  */
 export function RiskMetricsView({ data, portfolioName }: NavViewProps) {
+  // Momentos superiores: antes eran seis literales idénticos para una subida, una
+  // bajada y una cartera plana. Ahora salen de la serie de la cartera, y una serie
+  // sin dispersión no muestra número. Ver #361.
+  const portfolioReturns = simpleReturns(data.price_series?.Portfolio ?? []);
+  const skewAt = (sessions: number) => computeAdjustedSkewness(horizonReturns(portfolioReturns, sessions));
+  const kurtosisAt = (sessions: number) => computeExcessKurtosis(horizonReturns(portfolioReturns, sessions));
   const annReturnEst = data.volatility * 0.65;
   const sharpe = (annReturnEst / (data.volatility || 0.001)).toFixed(2);
   const sortino = (annReturnEst / (Math.abs(data.max_drawdown) * 0.5 || 0.001)).toFixed(2);
@@ -132,17 +145,17 @@ export function RiskMetricsView({ data, portfolioName }: NavViewProps) {
               </tr>
               <tr>
                 <td className="py-3 font-medium text-[#F4F2ED]">Skewness Coefficient</td>
-                <td className="py-3">-0.34</td>
-                <td className="py-3">-0.29</td>
-                <td className="py-3">-0.21</td>
-                <td className="py-3 text-[#9299A3]">Fisher-Pearson G1</td>
+                <td className="py-3">{formatMoment(skewAt(1))}</td>
+                <td className="py-3">{formatMoment(skewAt(10))}</td>
+                <td className="py-3">{formatMoment(skewAt(21))}</td>
+                <td className="py-3 text-[#9299A3]">Fisher–Pearson G1 (adjusted)</td>
               </tr>
               <tr>
                 <td className="py-3 font-medium text-[#F4F2ED]">Excess Kurtosis</td>
-                <td className="py-3 text-[#D6B56D]">+2.18</td>
-                <td className="py-3 text-[#D6B56D]">+1.95</td>
-                <td className="py-3 text-[#D6B56D]">+1.42</td>
-                <td className="py-3 text-[#9299A3]">Leptokurtic (Fat Tails)</td>
+                <td className="py-3 text-[#D6B56D]">{formatMoment(kurtosisAt(1))}</td>
+                <td className="py-3 text-[#D6B56D]">{formatMoment(kurtosisAt(10))}</td>
+                <td className="py-3 text-[#D6B56D]">{formatMoment(kurtosisAt(21))}</td>
+                <td className="py-3 text-[#9299A3]">Bias-corrected excess (G2)</td>
               </tr>
             </tbody>
           </table>
@@ -599,3 +612,4 @@ export function HelpSupportView() {
     </div>
   );
 }
+
