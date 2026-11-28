@@ -45,6 +45,34 @@ Submissions are reviewed within 24 hours.
 
 **Payouts:** Directly in USDC on Base / Ethereum.
 
----
+## 🛠️ Bug Bounty Details
 
-**Build with AUREN. Test the math. Find the flaws. Shape the future of financial risk intelligence.**
+### Issue Summary
+
+The workstation's System Preferences page exposes editable covariance-window, VaR-confidence, and risk-free-rate controls, but all three are uncontrolled DOM fields. Changing them appears to work until the user navigates away: Risk Metrics still shows the original values, and returning to Settings resets every edit. There is no save/apply action or notice that these controls are nonfunctional.
+
+### Steps to Reproduce
+
+1. Open `/dashboard?tab=settings`.
+2. Change Covariance Estimation Window from 252 to 126 trading days.
+3. Change VaR Confidence Level from 95% to 99%.
+4. Change Risk-Free Benchmark Rate from 4.25% to 1.00%.
+5. Open Risk Metrics, then return to System Preferences.
+
+### Expected Behavior
+
+Supported edits persist across in-app navigation and are used by the relevant analysis; otherwise, the UI must identify them as unavailable/read-only instead of suggesting they configure calculations.
+
+### Actual Behavior
+
+The metric header still says Confidence 95.0%, the Sharpe card still says Rf = 4.25% (US 10Y), and Settings returns to 252 / 95 / 4.25%.
+
+### Cause
+
+`SettingsView` has no state, event handlers, persistence, or configuration callback. Its two selects and defaultValue input can only change their own DOM values. `Workstation` conditionally mounts `<SettingsView />`; it holds no shared model-settings state. `RiskMetricsView` hardcodes the displayed confidence and Rf.
+
+### Proposed Solution
+
+Implement state management for the `SettingsView` component to persist user inputs and update the `RiskMetricsView` accordingly.
+
+### Code Implementation
