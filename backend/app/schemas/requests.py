@@ -1,7 +1,19 @@
 from typing import Any, Dict, Optional
 from pydantic import BaseModel, Field
 
-PERIOD_PATTERN = r"^(\d{1,2}(mo|y)|ytd|max)$"
+# Los periodos que el proveedor entiende de verdad. Antes el patrón aceptaba
+# ceros delante y ceros sueltos ("01y", "0y", "00y", "0mo", "02mo"): el proveedor
+# devolvía vacío para todos ellos y la petición caía en la caché de dos años, con
+# HTTP 200 y sin decirlo. Un cero delante no es una ventana: se rechaza en el
+# esquema, que es donde se puede explicar. Ver #405.
+#
+#   ytd | max                      → los dos literales del proveedor
+#   1y  2y ... 99y                 → años, sin cero delante
+#   1mo 2mo ... 99mo               → meses, sin cero delante
+PERIOD_PATTERN = r"^(ytd|max|(?:[1-9]|[1-9]\d)(?:mo|y))$"
+
+# El mismo patrón, para el mensaje de error: lo que sí se acepta.
+PERIOD_EXAMPLES = "ytd, max, 1y, 2y, 5y, 1mo, 3mo, 6mo"
 
 
 class PortfolioRequest(BaseModel):
@@ -13,7 +25,7 @@ class PortfolioRequest(BaseModel):
     period: str = Field(
         default="2y",
         pattern=PERIOD_PATTERN,
-        description="Historical price lookback period (e.g. '1y', '2y', '5y')",
+        description=f"Historical price lookback period ({PERIOD_EXAMPLES}). A zero-padded or zero period is rejected instead of silently serving the bundled two-year cache.",
     )
 
 
@@ -35,7 +47,11 @@ class LiquidityRequest(BaseModel):
         le=1.0,
         description="Max acceptable daily volume participation rate (default 10%)",
     )
-    period: str = Field(default="1y", pattern=PERIOD_PATTERN, description="Lookback window for volume data")
+    period: str = Field(
+        default="1y",
+        pattern=PERIOD_PATTERN,
+        description=f"Lookback window for volume data ({PERIOD_EXAMPLES})",
+    )
 
 
 class AIReportRequest(BaseModel):
