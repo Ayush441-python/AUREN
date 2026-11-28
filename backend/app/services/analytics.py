@@ -108,6 +108,14 @@ def load_aligned_prices(tickers: List[str], period: str) -> pd.DataFrame:
             detail=f"No price data available for: {missing}. Try again shortly or remove them.",
         )
 
+    short_tickers = [t for t in tickers if len(prices[t].dropna()) < 30]
+    if short_tickers:
+        culprit = f" Short history: {short_tickers}."
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Not enough overlapping price history for these tickers (need at least 30 trading days).{culprit}",
+        )
+
     aligned = prices[tickers].ffill(limit=3).dropna()
     if len(aligned) < 30:
         aligned = prices[tickers].dropna()

@@ -107,3 +107,36 @@ def test_wallet_endpoint_shape(monkeypatch):
     assert data["portfolio"] == {"NVDA": 1.0}
     assert data["holdings"][0]["ticker"] == "NVDA"
     assert data["total_value"] == 200.0
+
+def test_risk_rejects_sparse_history_before_forward_fill(monkeypatch):
+    import pandas as pd
+    import backend.app.main as api_module
+
+    dates = pd.bdate_range("2025-01-02", periods=40)
+    prices = pd.DataFrame(
+        {"AAPL": range(100, 140), "MSFT": range(200, 240)}, index=dates, dtype=float
+    )
+    prices.loc[dates.difference(dates[::4]), "MSFT"] = float("nan")
+    monkeypatch.setattr(api_module, "load_prices", lambda tickers, period="2y": prices[list(tickers)])
+
+    response = client.post("/risk", json={"weights": {"AAPL": 50, "MSFT": 50}, "period": "1y"})
+    assert response.status_code == 422
+    assert "Short history: ['MSFT']" in response.json()["detail"]
+
+
+def test_risk_accepts_sufficient_history_with_ordinary_gaps(monkeypatch):
+    import pandas as pd
+    import backend.app.main as api_module
+
+    dates = pd.bdate_range("2025-01-02", periods=40)
+    prices = pd.DataFrame(
+        {"AAPL": range(100, 140), "MSFT": range(200, 240)}, index=dates, dtype=float
+    )
+    drop_indices = [1, 5, 9, 13, 17, 21, 25, 29, 33, 37]
+    prices.loc[dates[drop_indices], "MSFT"] = float("nan")
+    assert len(prices["MSFT"].dropna()) == 30
+    monkeypatch.setattr(api_module, "load_prices", lambda tickers, period="2y": prices[list(tickers)])
+
+    response = client.post("/risk", json={"weights": {"AAPL": 50, "MSFT": 50}, "period": "1y"})
+    assert response.status_code == 200
+
