@@ -38,6 +38,14 @@ export interface NavViewProps {
  * 1. Risk Metrics View (Sharpe, Sortino, Tail ratios, Parametric VaR)
  */
 export function RiskMetricsView({ data, portfolioName }: NavViewProps) {
+  // VaR: el motor manda el cuantil ya calculado con la media diaria incluida
+  // (ver #376). Los múltiplos de la volatilidad quedan solo como respaldo para
+  // respuestas de una versión anterior del API.
+  const var95 = data.parametric_var_95;
+  const varAt = (horizon: "1d" | "10d" | "21d", legacyMultiple: number) => {
+    const fromEngine = var95?.[horizon];
+    return typeof fromEngine === "number" ? fromEngine : data.volatility * legacyMultiple;
+  };
   const annReturnEst = data.volatility * 0.65;
   const sharpe = (annReturnEst / (data.volatility || 0.001)).toFixed(2);
   const sortino = (annReturnEst / (Math.abs(data.max_drawdown) * 0.5 || 0.001)).toFixed(2);
@@ -118,9 +126,9 @@ export function RiskMetricsView({ data, portfolioName }: NavViewProps) {
             <tbody className="divide-y divide-[#1D2128] font-mono text-xs text-[#E4E6EA]">
               <tr>
                 <td className="py-3 font-medium text-[#F4F2ED]">Value at Risk (VaR 95%)</td>
-                <td className="py-3 text-[#D46B6B]">{formatPercent(data.volatility * 0.103)}</td>
-                <td className="py-3 text-[#D46B6B]">{formatPercent(data.volatility * 0.326)}</td>
-                <td className="py-3 text-[#D46B6B]">{formatPercent(data.volatility * 0.472)}</td>
+                <td className="py-3 text-[#D46B6B]">{formatPercent(varAt("1d", 0.103))}</td>
+                <td className="py-3 text-[#D46B6B]">{formatPercent(varAt("10d", 0.326))}</td>
+                <td className="py-3 text-[#D46B6B]">{formatPercent(varAt("21d", 0.472))}</td>
                 <td className="py-3 text-[#9299A3]">Parametric Gaussian</td>
               </tr>
               <tr>

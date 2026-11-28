@@ -26,6 +26,16 @@ export interface RiskAnalysis {
   concentration: ConcentrationMetrics;
   volatility: number;
   max_drawdown: number;
+  /** VaR paramétrico al 95% con la media diaria incluida (ver #376). */
+  parametric_var_95?: {
+    confidence: number;
+    z: number;
+    mean_daily: number;
+    stdev_daily: number;
+    '1d': number;
+    '10d': number;
+    '21d': number;
+  };
   sector_exposure: Record<string, number>;
   correlated_pairs: [string, string, number][];
   stress: Record<string, number>;
