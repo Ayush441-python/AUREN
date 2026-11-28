@@ -1,3 +1,5 @@
+import pandas as pd
+import pytest
 from fastapi.testclient import TestClient
 from backend.app.main import app
 
@@ -48,6 +50,27 @@ def test_risk_empty():
     response = client.post("/risk", json={"weights": {}})
     assert response.status_code == 400
 
+@pytest.mark.parametrize("observed_closes, expected_status", [(10, 422), (30, 200)])
+def test_risk_counts_observed_closes_before_filling(monkeypatch, observed_closes, expected_status):
+    import backend.app.main as api_module
+
+    dates = pd.bdate_range("2025-01-02", periods=40)
+    prices = pd.DataFrame(
+        {"AAPL": range(100, 140), "MSFT": range(200, 240)}, index=dates, dtype=float
+    )
+    missing = dates[1::4] if observed_closes == 30 else dates.difference(dates[::4])
+    prices.loc[missing, "MSFT"] = float("nan")
+    monkeypatch.setattr(api_module, "load_prices", lambda tickers, period: prices[tickers])
+
+    response = client.post("/risk", json={"weights": {"AAPL": 50, "MSFT": 50}, "period": "1y"})
+
+    assert response.status_code == expected_status
+    if expected_status == 422:
+        assert "Short history: ['MSFT']" in response.json()["detail"]
+    else:
+        assert len(response.json()["dates"]) == 40
+
+
 def test_liquidity_valid():
     response = client.post("/liquidity", json={
         "portfolio_value": 100000,
@@ -70,7 +93,6 @@ def test_risk_mixed_stock_and_crypto_is_json_safe_and_aligned(monkeypatch):
     """Stocks skip weekends, crypto does not. The raw frame has NaN rows; the API must
     drop them so the JSON is valid and every chart series matches `dates`."""
     import numpy as np
-    import pandas as pd
     import backend.app.main as api_module
 
     idx = pd.date_range("2025-01-01", periods=120, freq="D")  # includes weekends
