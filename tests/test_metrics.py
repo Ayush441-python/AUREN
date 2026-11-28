@@ -73,3 +73,25 @@ def test_stress_scenario():
     w = pd.Series([0.5, 0.5], index=["NVDA", "GLD"])
     shocks = {"Big Tech": -0.20}
     assert stress(w, shocks) == pytest.approx(-0.10)
+
+def test_stress_chip_selloff_semiconductor_equipment_and_materials():
+    import sys
+    from types import SimpleNamespace
+    from unittest.mock import patch
+    from engine.stress import SCENARIOS, stress, shock_for
+    from engine.universe import GROUPS, SECTORS, classify_and_register_ticker
+
+    metadata = {"sector": "Technology", "industry": "Semiconductor Equipment & Materials"}
+    provider = SimpleNamespace(Ticker=lambda ticker: SimpleNamespace(info=metadata))
+    scenario = SCENARIOS["Chip selloff (semis fall 25%)"]
+    weights = pd.Series({"KLAC": 0.50, "AMAT": 0.25, "MSFT": 0.25})
+
+    with patch.dict(sys.modules, {"yfinance": provider}), patch.dict(SECTORS), patch.dict(GROUPS):
+        SECTORS.pop("KLAC", None)
+        GROUPS.pop("KLAC", None)
+        classify_and_register_ticker("KLAC")
+        assert shock_for("KLAC", scenario) == -0.25
+        assert shock_for("AMAT", scenario) == -0.25
+        assert shock_for("MSFT", scenario) == 0.0
+        assert stress(weights, scenario) == pytest.approx(-0.1875)
+
