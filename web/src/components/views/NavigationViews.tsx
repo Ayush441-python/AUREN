@@ -168,12 +168,19 @@ export function MarketOverviewView({ data }: NavViewProps) {
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-[#272B33] bg-[#12151B] p-5">
-        <span className="font-mono text-[9px] uppercase tracking-widest text-[#D6B56D]">
-          Global Macro Surveillance
-        </span>
-        <h1 className="mt-1 font-sans text-xl font-bold text-[#F4F2ED]">Market Overview</h1>
-        <p className="mt-1 text-xs text-[#9299A3]">
-          Real-time cross-asset benchmark indices, liquidity regime, and risk premium environment.
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <span className="font-mono text-[9px] uppercase tracking-widest text-[#D6B56D]">
+              Reference Macro Snapshot (Illustrative)
+            </span>
+            <h1 className="mt-1 font-sans text-xl font-bold text-[#F4F2ED]">Market Overview</h1>
+          </div>
+          <span className="w-fit rounded-md border border-[#D6B56D]/40 bg-[#D6B56D]/10 px-3 py-1 font-mono text-[11px] font-semibold text-[#D6B56D]">
+            Illustrative Sample Data — Not Live Quotes
+          </span>
+        </div>
+        <p className="mt-2 text-xs text-[#9299A3]">
+          Illustrative static cross-asset benchmark figures, regime gauges, and stress indicators. No live market-data feed is connected to this view.
         </p>
       </div>
 
