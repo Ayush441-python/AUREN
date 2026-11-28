@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { RiskAnalysis } from "@/lib/types";
+import { SAVED_PORTFOLIOS, type SavedPortfolioEntry } from "@/lib/savedPortfolios";
 import { formatNumber, formatPercent } from "@/lib/format";
 import { Button } from "@/components/ui/Button";
 
@@ -407,34 +408,11 @@ export function WatchlistView() {
 /**
  * 5. Saved Portfolios View
  */
-export function SavedPortfoliosView() {
-  const saved = [
-    {
-      id: "p-balanced-01",
-      name: "Global Balanced 60/40",
-      description: "Equities, aggregate treasuries, gold hedge",
-      created: "2026-11-20",
-      riskScore: 42,
-      assets: 6,
-    },
-    {
-      id: "p-tech-tilt",
-      name: "AI & Semiconductor Overweight",
-      description: "High growth momentum factor allocation",
-      created: "2026-11-24",
-      riskScore: 78,
-      assets: 8,
-    },
-    {
-      id: "p-all-weather",
-      name: "Bridgewater Style All-Weather",
-      description: "Risk parity across macroeconomic environments",
-      created: "2026-11-15",
-      riskScore: 28,
-      assets: 9,
-    },
-  ];
+export interface SavedPortfoliosViewProps {
+  onSelectPortfolio?: (entry: SavedPortfolioEntry) => void;
+}
 
+export function SavedPortfoliosView({ onSelectPortfolio }: SavedPortfoliosViewProps) {
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-[#272B33] bg-[#12151B] p-5">
@@ -448,7 +426,7 @@ export function SavedPortfoliosView() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        {saved.map((p) => (
+        {SAVED_PORTFOLIOS.map((p) => (
           <div
             key={p.id}
             className="group relative flex flex-col justify-between rounded-xl border border-[#272B33] bg-[#12151B] p-5 transition-all hover:border-[#D6B56D]/60 hover:bg-[#161A22]"
@@ -470,6 +448,20 @@ export function SavedPortfoliosView() {
               <span className="font-mono text-[#636B75]">{p.assets} Instruments</span>
               <a
                 href={`/dashboard?tab=overview&portfolio=${p.id}`}
+                onClick={(e) => {
+                  if (
+                    onSelectPortfolio &&
+                    !e.defaultPrevented &&
+                    e.button === 0 &&
+                    !e.metaKey &&
+                    !e.ctrlKey &&
+                    !e.shiftKey &&
+                    !e.altKey
+                  ) {
+                    e.preventDefault();
+                    onSelectPortfolio(p);
+                  }
+                }}
                 className="flex items-center gap-1 font-semibold text-[#D6B56D] hover:underline"
               >
                 Load Portfolio <ArrowUpRight className="h-3 w-3" />

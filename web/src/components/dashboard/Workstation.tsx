@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BASE_PORTFOLIO_ANALYSIS } from "@/lib/mock";
 import { calculateRisk } from "@/lib/api";
+import { resolveSavedPortfolio } from "@/lib/savedPortfolios";
 import { useWallet } from "@/lib/useWallet";
 import type { RiskAnalysis } from "@/lib/types";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
@@ -87,25 +88,28 @@ export function Workstation({
   const [simulation, setSimulation] = useState<SimulationComparison | null>(null);
 
   const wallet = useWallet();
+  const savedPortfolio = resolveSavedPortfolio(portfolioId);
   const portfolioName =
     customPortfolioName ??
+    savedPortfolio?.name ??
     (portfolioId ? `Portfolio ${portfolioId}` : "Balanced Multi-Asset");
 
   const buildHref = useCallback(
-    (tab: NavItemKey) => {
+    (tab: NavItemKey, overridePortfolioId?: string) => {
       const params = new URLSearchParams();
       params.set("tab", tab);
-      if (portfolioId) params.set("portfolio", portfolioId);
+      const pid = overridePortfolioId ?? portfolioId;
+      if (pid) params.set("portfolio", pid);
       return `/dashboard?${params.toString()}`;
     },
     [portfolioId]
   );
 
   const selectTab = useCallback(
-    (tab: NavItemKey | string) => {
+    (tab: NavItemKey | string, overridePortfolioId?: string) => {
       if (!isNavTab(tab)) return;
       setActiveTab(tab);
-      router.push(buildHref(tab), { scroll: false });
+      router.push(buildHref(tab, overridePortfolioId), { scroll: false });
     },
     [buildHref, router]
   );
@@ -117,7 +121,9 @@ export function Workstation({
 
   useEffect(() => {
     let active = true;
-    calculateRisk(BASE_PORTFOLIO_ANALYSIS.normalized_weights)
+    const matchedSaved = resolveSavedPortfolio(portfolioId);
+    const initialWeights = matchedSaved?.weights ?? BASE_PORTFOLIO_ANALYSIS.normalized_weights;
+    calculateRisk(initialWeights)
       .then((live) => {
         if (!active || !live || typeof live.score !== "number") return;
         setData(live);
@@ -140,10 +146,10 @@ export function Workstation({
     return () => {
       active = false;
     };
-  }, []);
+  }, [portfolioId]);
 
   const handleApplyPortfolio = useCallback(
-    async (weights: Record<string, number>, name: string) => {
+    async (weights: Record<string, number>, name: string, nextPortfolioId?: string) => {
       const previousStatus = dataStatus;
       setCustomPortfolioName(name);
       setLoading(true);
@@ -156,7 +162,7 @@ export function Workstation({
         }
         setData(live);
         setDataStatus("live");
-        selectTab("overview");
+        selectTab("overview", nextPortfolioId);
       } catch (applyError) {
         setDataStatus("stale");
         setError(
@@ -265,7 +271,13 @@ export function Workstation({
 
         {/* WORKSPACE Sections */}
         {activeTab === "watchlist" && <WatchlistView />}
-        {activeTab === "saved-portfolios" && <SavedPortfoliosView />}
+        {activeTab === "saved-portfolios" && (
+          <SavedPortfoliosView
+            onSelectPortfolio={(entry) =>
+              handleApplyPortfolio(entry.weights, entry.name, entry.id)
+            }
+          />
+        )}
         {activeTab === "reports" && <ReportView data={data} />}
 
         {/* PREFERENCES Sections */}
