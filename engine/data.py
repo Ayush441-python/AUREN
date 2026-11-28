@@ -38,9 +38,14 @@ def _download(field: str, tickers: list[str], period: str) -> pd.DataFrame | Non
 
 
 def _cached(path: pathlib.Path, tickers: list[str]) -> pd.DataFrame:
+    # The cache is a fallback, never the failure: a missing file, a zero-byte
+    # file left by an interrupted write, or a file pandas cannot parse all mean
+    # the same thing here, and none of them may escape to the caller.
     try:
         cached = pd.read_csv(path, index_col=0, parse_dates=True)
     except FileNotFoundError:
+        return pd.DataFrame()
+    except (pd.errors.EmptyDataError, pd.errors.ParserError, UnicodeDecodeError, ValueError):
         return pd.DataFrame()
     return cached[[t for t in tickers if t in cached.columns]]
 
