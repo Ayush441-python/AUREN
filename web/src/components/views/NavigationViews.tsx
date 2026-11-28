@@ -25,6 +25,11 @@ import {
 import { cn } from "@/lib/cn";
 import type { RiskAnalysis } from "@/lib/types";
 import { formatNumber, formatPercent } from "@/lib/format";
+import {
+  computeEwmaAnnualizedVolatility,
+  computeRealizedVolOfVol,
+  computeSimpleReturns,
+} from "@/lib/volatilityMetrics";
 import { Button } from "@/components/ui/Button";
 
 // View Props interface for modular sub-views
@@ -262,6 +267,10 @@ export function MarketOverviewView({ data }: NavViewProps) {
  * 3. Volatility Analysis View
  */
 export function VolatilityAnalysisView({ data }: NavViewProps) {
+  const returns = computeSimpleReturns(data.price_series?.Portfolio ?? []);
+  const ewmaVol = computeEwmaAnnualizedVolatility(returns, 0.94);
+  const realizedVolOfVol = computeRealizedVolOfVol(returns, 21);
+
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-[#272B33] bg-[#12151B] p-5">
@@ -272,7 +281,7 @@ export function VolatilityAnalysisView({ data }: NavViewProps) {
           Volatility Dynamics &amp; Term Structure
         </h1>
         <p className="mt-1 text-xs text-[#9299A3]">
-          EWMA volatility clustering, Parkinson realized volatility, and return dispersion analysis.
+          EWMA volatility clustering, realized volatility dispersion, and rolling variance stability.
         </p>
       </div>
 
@@ -288,17 +297,21 @@ export function VolatilityAnalysisView({ data }: NavViewProps) {
         </div>
         <div className="rounded-xl border border-[#272B33] bg-[#12151B] p-4">
           <span className="font-mono text-[10px] uppercase text-[#9299A3]">
-            EWMA Decay Parameter (λ)
+            EWMA Annualized Vol (λ = 0.94)
           </span>
-          <p className="mt-2 font-mono text-2xl font-bold text-[#D6B56D]">0.94</p>
-          <span className="mt-1 block text-[10px] text-[#636B75]">RiskMetrics benchmark specification</span>
+          <p className="mt-2 font-mono text-2xl font-bold text-[#D6B56D]">
+            {ewmaVol === null ? "N/A" : formatPercent(ewmaVol)}
+          </p>
+          <span className="mt-1 block text-[10px] text-[#636B75]">RiskMetrics λ = 0.94 recursive vol</span>
         </div>
         <div className="rounded-xl border border-[#272B33] bg-[#12151B] p-4">
           <span className="font-mono text-[10px] uppercase text-[#9299A3]">
-            Volatility of Volatility (VVIX)
+            Realized Vol-of-Vol (21d)
           </span>
-          <p className="mt-2 font-mono text-2xl font-bold text-[#F4F2ED]">88.4</p>
-          <span className="mt-1 block text-[10px] text-[#636B75]">Kurtosis of variance swap</span>
+          <p className="mt-2 font-mono text-2xl font-bold text-[#F4F2ED]">
+            {realizedVolOfVol === null ? "N/A" : formatPercent(realizedVolOfVol)}
+          </p>
+          <span className="mt-1 block text-[10px] text-[#636B75]">Std dev of rolling 21d annualized vol</span>
         </div>
       </div>
 
