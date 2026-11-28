@@ -1,7 +1,11 @@
 from typing import Any, Dict, Optional
 from pydantic import BaseModel, Field
 
-PERIOD_PATTERN = r"^(\d{1,2}(mo|y)|ytd|max)$"
+# 1-99 units, no leading zero: "01y" and "0y" are not periods the provider
+# can serve, so admitting them sent every such request to the bundled CSV
+# fallback and answered with the whole two-year snapshot instead of the
+# requested window (issue #405).
+PERIOD_PATTERN = r"^(?:[1-9]\d?(?:mo|y)|ytd|max)$"
 
 
 class PortfolioRequest(BaseModel):
