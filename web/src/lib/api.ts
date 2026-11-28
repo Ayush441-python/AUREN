@@ -14,7 +14,7 @@ const getApiBase = (): string => {
       return process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8080";
     }
   }
-  return process.env.NEXT_PUBLIC_API_URL || "https://auren-api-8yrq.onrender.com";
+  return process.env.NEXT_PUBLIC_API_URL || "https://mainnet-api-62qs.onrender.com";
 };
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
