@@ -353,7 +353,12 @@ export function WatchlistView() {
             Target securities and assets flagged for portfolio inclusion or hedging.
           </p>
         </div>
-        <Button variant="secondary" className="text-xs">
+        <Button
+          variant="secondary"
+          className="text-xs"
+          disabled
+          title="Adding watchlist instruments is not available yet."
+        >
           + Add Instrument
         </Button>
       </div>
@@ -390,7 +395,11 @@ export function WatchlistView() {
                   <td className="py-3 text-[#E4E6EA]">{item.rsi}</td>
                   <td className="py-3 text-[#D6B56D]">{item.beta}</td>
                   <td className="py-3 text-right">
-                    <button className="text-[11px] font-sans text-[#D6B56D] hover:underline">
+                    <button
+                      disabled
+                      title="Watchlist simulation is not available yet."
+                      className="text-[11px] font-sans text-[#D6B56D] opacity-50 cursor-not-allowed"
+                    >
                       Simulate In Sandbox
                     </button>
                   </td>
