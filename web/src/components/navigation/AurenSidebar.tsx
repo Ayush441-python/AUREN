@@ -19,6 +19,7 @@ import {
   FolderLock,
   FileCheck2,
   Sliders,
+  BookOpen,
   HelpCircle,
   PanelLeftClose,
   PanelLeftOpen,
@@ -172,6 +173,13 @@ export const NAVIGATION_STRUCTURE: NavSection[] = [
         icon: Sliders,
         route: "/dashboard?tab=settings",
         description: "Engine calculation parameters and display units",
+      },
+      {
+        id: "docs",
+        label: "API & Proof",
+        icon: BookOpen,
+        route: "/dashboard?tab=docs",
+        description: "Endpoint documentation, request examples, and proof rules",
       },
       {
         id: "help-support",

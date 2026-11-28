@@ -23,6 +23,7 @@ const ALL_TABS: NavItemKey[] = [
   "saved-portfolios",
   "reports",
   "settings",
+  "docs",
   "help-support",
 ];
 
@@ -33,7 +34,7 @@ const LEGACY_MAP: Record<string, NavItemKey> = {
   stress: "stress-testing",
   report: "reports",
   slides: "reports",
-  docs: "help-support",
+  docs: "docs",
 };
 
 function parseTab(value: string | string[] | undefined): NavItemKey {

@@ -59,6 +59,7 @@ const ALL_NAV_TABS: NavItemKey[] = [
   "saved-portfolios",
   "reports",
   "settings",
+  "docs",
   "help-support",
 ];
 
@@ -270,6 +271,7 @@ export function Workstation({
 
         {/* PREFERENCES Sections */}
         {activeTab === "settings" && <SettingsView />}
+        {activeTab === "docs" && <DocsProofView data={data} />}
         {activeTab === "help-support" && <HelpSupportView />}
       </DashboardShell>
 
