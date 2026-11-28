@@ -15,6 +15,7 @@ logger = logging.getLogger("auren-wallet")
 
 API_URL = "https://api.coinbase.com/v1/tokenized-stocks"
 TOKEN_CACHE_FILE = pathlib.Path(__file__).parent.parent / "data" / "tokenized_stocks.json"
+CACHE = pathlib.Path(__file__).parent.parent / "data" / "prices.csv"
 
 # High-availability Base RPC failover pool
 PRIMARY_BASE_RPC = os.getenv("BASE_RPC_URL", "https://mainnet.base.org")
@@ -26,7 +27,6 @@ FALLBACK_BASE_RPCS = [
     "https://mainnet.base.org",
 ]
 BASE_RPC = PRIMARY_BASE_RPC
-
 BALANCE_OF = "0x70a08231"  # ERC-20 balanceOf(address)
 ADDRESS_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
 
@@ -194,8 +194,38 @@ def token_balances(
     return out
 
 
+def _latest_underlying_prices(tickers: List[str]) -> Dict[str, float]:
+    """Return latest valid close price per ticker from cached or live price data."""
+    if not tickers:
+        return {}
+    out: Dict[str, float] = {}
+    try:
+        if CACHE.exists():
+            cached = pd.read_csv(CACHE, index_col=0, parse_dates=True)
+            for t in tickers:
+                if t in cached.columns:
+                    s = cached[t].dropna()
+                    if not s.empty and float(s.iloc[-1]) > 0:
+                        out[t] = float(s.iloc[-1])
+        missing = [t for t in tickers if t not in out]
+        if missing:
+            from engine.data import load_prices
+            df = load_prices(missing)
+            for t in missing:
+                if t in df.columns:
+                    s = df[t].dropna()
+                    if not s.empty and float(s.iloc[-1]) > 0:
+                        out[t] = float(s.iloc[-1])
+    except Exception:
+        pass
+    return out
+
+
 def wallet_holdings(
-    wallet: str, supported: Set[str], rpc_url: Optional[str] = None
+    wallet: str,
+    supported: Set[str],
+    rpc_url: Optional[str] = None,
+    fallback_prices: Optional[Dict[str, float]] = None,
 ) -> Dict[str, Any]:
     """Inspect Base address for tokenized stocks, cbBTC, USDC, and native ETH."""
     rpc_pool = [rpc_url] + FALLBACK_BASE_RPCS if rpc_url else FALLBACK_BASE_RPCS
@@ -206,23 +236,42 @@ def wallet_holdings(
     balances = token_balances(wallet, all_tokens_to_check, rpc_url=rpc_pool[0])
 
     by_addr = {t["contract_address"].lower(): t for t in all_tokens_to_check}
+    missing_nav_tickers = []
+    for addr in balances:
+        t = by_addr.get(addr)
+        if not t:
+            continue
+        ticker = t.get("ticker") or underlying_ticker(t.get("symbol", "?"))
+        if float(t.get("nav_price") or 0.0) <= 0 and ticker in supported:
+            missing_nav_tickers.append(ticker)
+    ref_prices = (
+        dict(fallback_prices)
+        if fallback_prices is not None
+        else _latest_underlying_prices(sorted(set(missing_nav_tickers)))
+    )
     rows: List[Dict[str, Any]] = []
-
     for addr, amount in balances.items():
         t = by_addr.get(addr)
         if not t:
             continue
         symbol = t.get("symbol", "?")
         ticker = t.get("ticker") or underlying_ticker(symbol)
-        price = float(t.get("nav_price") or 0.0)
         multiplier = float(t.get("multiplier") or 1.0)
+        shares = amount * multiplier
+        nav_price = float(t.get("nav_price") or 0.0)
+        if nav_price > 0:
+            price = nav_price
+        elif ticker in ref_prices and ref_prices[ticker] > 0:
+            price = float(ref_prices[ticker]) * multiplier
+        else:
+            price = 0.0
         rows.append(
             {
                 "token": symbol,
                 "ticker": ticker,
                 "address": addr,
                 "tokens": round(amount, 6),
-                "shares": round(amount * multiplier, 6),
+                "shares": round(shares, 6),
                 "price": price,
                 "value": round(amount * price, 2),
                 "supported": ticker in supported,
@@ -247,23 +296,44 @@ def wallet_holdings(
                 "nav_updated": None,
             }
         )
-
     rows.sort(key=lambda r: r["value"], reverse=True)
     return {"rows": rows, "n_tokens": len(all_tokens_to_check)}
 
 
 def holdings_to_portfolio(
-    rows: List[Dict[str, Any]]
+    rows: List[Dict[str, Any]],
+    fallback_prices: Optional[Dict[str, float]] = None,
 ) -> Tuple[pd.DataFrame, float, List[Dict[str, Any]]]:
     """Aggregate supported holdings by underlying ticker.
     Returns (portfolio_df with ticker + weight %, total_value, skipped_rows)."""
+    missing_tickers = [
+        r["ticker"]
+        for r in rows
+        if r.get("supported")
+        and float(r.get("value") or 0) <= 0
+        and (float(r.get("shares") or 0) > 0 or float(r.get("tokens") or 0) > 0)
+    ]
+    ref_prices = (
+        dict(fallback_prices)
+        if fallback_prices is not None
+        else (_latest_underlying_prices(sorted(set(missing_tickers))) if missing_tickers else {})
+    )
     value_by_ticker: Dict[str, float] = {}
     skipped: List[Dict[str, Any]] = []
 
     for r in rows:
-        if r.get("supported") and r.get("value", 0) > 0:
+        val = float(r.get("value") or 0)
+        if r.get("supported") and val <= 0 and r["ticker"] in ref_prices:
+            underlying = float(ref_prices[r["ticker"]])
+            shares = float(r.get("shares") or r.get("tokens") or 0)
+            if underlying > 0 and shares > 0:
+                val = shares * underlying
+                tokens_amt = float(r.get("tokens") or shares)
+                r["price"] = val / tokens_amt if tokens_amt > 0 else underlying
+                r["value"] = round(val, 2)
+        if r.get("supported") and val > 0:
             ticker = r["ticker"]
-            value_by_ticker[ticker] = value_by_ticker.get(ticker, 0.0) + r["value"]
+            value_by_ticker[ticker] = value_by_ticker.get(ticker, 0.0) + val
         else:
             skipped.append(r)
 
