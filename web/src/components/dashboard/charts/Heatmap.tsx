@@ -17,8 +17,12 @@ interface Selection {
 }
 
 const highThreshold = 0.7;
+/** La leyenda dice "Low or negative, ≤ 0.20": el corte tiene que ser el mismo. */
+const lowThreshold = 0.2;
+/** La leyenda dice "Moderate, 0.21–0.49": entre ese corte y el alto. */
+const moderateThreshold = 0.5;
 
-function cellAppearance(value: number, diagonal: boolean) {
+export function cellAppearance(value: number, diagonal: boolean) {
   if (diagonal) {
     return {
       backgroundColor: "rgba(48,42,32,0.55)",
@@ -34,14 +38,17 @@ function cellAppearance(value: number, diagonal: boolean) {
       color: "#FCA5A5",
     };
   }
-  if (value >= 0.5) {
+  if (value >= moderateThreshold) {
     return {
       backgroundColor: `rgba(212,175,55,${0.1 + intensity * 0.16})`,
       borderColor: "rgba(212,175,55,0.35)",
       color: "#EACB83",
     };
   }
-  if (value <= -0.2) {
+  // El corte bajo es +0.20, no −0.20: la leyenda de abajo promete "Low or
+  // negative, ≤ 0.20" en verde, y con el corte anterior un par r = 0.10 salía con
+  // el mismo estilo neutro que r = 0.30. Ver #408.
+  if (value <= lowThreshold) {
     return {
       backgroundColor: `rgba(52,211,153,${0.08 + intensity * 0.18})`,
       borderColor: "rgba(52,211,153,0.3)",
@@ -199,3 +206,4 @@ export function Heatmap({ matrix }: HeatmapProps) {
     </div>
   );
 }
+
