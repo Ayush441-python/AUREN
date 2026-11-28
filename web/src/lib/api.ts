@@ -6,15 +6,18 @@ import {
   UniverseData,
 } from "./types";
 
-const getApiBase = (): string => {
+export const getApiBase = (): string => {
   if (typeof window !== "undefined") {
     const saved = localStorage.getItem("auren_api_url");
     if (saved) return saved.replace(/\/+$/, "");
-    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-      return "http://127.0.0.1:8000";
-    }
   }
-  return process.env.NEXT_PUBLIC_API_URL || "https://auren-api-8yrq.onrender.com";
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL.replace(/\/+$/, "");
+  }
+  if (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
+    return "http://127.0.0.1:8000";
+  }
+  return "https://auren-api-8yrq.onrender.com";
 };
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
