@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 import { formatNumber } from "@/lib/format";
+import {
+  cellAppearance,
+  highThreshold as CHART_HIGH_THRESHOLD,
+} from "./heatmapCells";
 import { cn } from "@/lib/cn";
 import type { CorrelationMatrix } from "@/lib/types";
 
@@ -16,44 +20,7 @@ interface Selection {
   high: boolean;
 }
 
-const highThreshold = 0.7;
-
-function cellAppearance(value: number, diagonal: boolean) {
-  if (diagonal) {
-    return {
-      backgroundColor: "rgba(48,42,32,0.55)",
-      borderColor: "rgba(48,42,32,0.9)",
-      color: "#77736C",
-    };
-  }
-  const intensity = Math.min(1, Math.abs(value));
-  if (value > highThreshold) {
-    return {
-      backgroundColor: `rgba(248,113,113,${0.12 + intensity * 0.26})`,
-      borderColor: "rgba(248,113,113,0.45)",
-      color: "#FCA5A5",
-    };
-  }
-  if (value >= 0.5) {
-    return {
-      backgroundColor: `rgba(212,175,55,${0.1 + intensity * 0.16})`,
-      borderColor: "rgba(212,175,55,0.35)",
-      color: "#EACB83",
-    };
-  }
-  if (value <= -0.2) {
-    return {
-      backgroundColor: `rgba(52,211,153,${0.08 + intensity * 0.18})`,
-      borderColor: "rgba(52,211,153,0.3)",
-      color: "#6EE7B7",
-    };
-  }
-  return {
-    backgroundColor: "rgba(20,19,17,0.8)",
-    borderColor: "rgba(48,42,32,0.75)",
-    color: "#A39D90",
-  };
-}
+const highThreshold = CHART_HIGH_THRESHOLD;
 
 export function Heatmap({ matrix }: HeatmapProps) {
   const columns = matrix.columns;
