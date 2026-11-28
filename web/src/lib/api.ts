@@ -6,6 +6,10 @@ import {
   UniverseData,
 } from "./types";
 
+export const PUBLIC_API_BASE_URL = (
+  process.env.NEXT_PUBLIC_API_URL || "https://auren-api-8yrq.onrender.com"
+).replace(/\/+$/, "");
+
 const getApiBase = (): string => {
   if (typeof window !== "undefined") {
     const saved = localStorage.getItem("auren_api_url");
@@ -14,7 +18,7 @@ const getApiBase = (): string => {
       return "http://127.0.0.1:8000";
     }
   }
-  return process.env.NEXT_PUBLIC_API_URL || "https://auren-api-8yrq.onrender.com";
+  return PUBLIC_API_BASE_URL;
 };
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {

@@ -1,6 +1,7 @@
 "use client";
 
 import { BookOpen, Braces, ShieldCheck, Terminal } from "lucide-react";
+import { PUBLIC_API_BASE_URL } from "@/lib/api";
 import { formatNumber, formatPercent, formatSignedPercent } from "@/lib/format";
 import type { RiskAnalysis } from "@/lib/types";
 import { Panel, PanelHeader } from "@/components/ui/Panel";
@@ -11,7 +12,7 @@ interface DocsProofViewProps {
   data?: RiskAnalysis;
 }
 
-const apiBase = process.env.NEXT_PUBLIC_API_URL || "https://auren-api-8yrq.onrender.com";
+const riskEndpoint = PUBLIC_API_BASE_URL + "/risk";
 
 const rules = [
   {
@@ -46,7 +47,7 @@ const rules = [
   },
 ];
 
-const curlExample = `curl -X POST ${apiBase}/risk \\
+const curlExample = `curl -X POST ${riskEndpoint} \\
   -H "Content-Type: application/json" \\
   -d '{
     "weights": {
@@ -59,7 +60,7 @@ const curlExample = `curl -X POST ${apiBase}/risk \\
   }'`;
 
 const fetchExample = `const response = await fetch(
-  "${apiBase}/risk",
+  "${riskEndpoint}",
   {
     method: "POST",
     headers: { "Content-Type": "application/json" },
