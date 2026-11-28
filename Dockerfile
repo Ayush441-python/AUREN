@@ -55,7 +55,7 @@ EXPOSE 8000
 
 # Docker/Render local healthcheck probe (reads dynamically assigned $PORT)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD sh -c "curl -f http://127.0.0.1:${PORT:-8000}/healthz || exit 1"
+    CMD sh -c "curl -f https://auren-api-8yrq.onrender.com/healthz || exit 1"
 
 # Launch Uvicorn on the port Render assigns ($PORT).
 #  - exec: uvicorn becomes PID 1 so Render's SIGTERM triggers a clean shutdown

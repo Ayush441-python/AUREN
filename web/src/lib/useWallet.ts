@@ -12,6 +12,9 @@ export interface WalletState {
 }
 
 interface EthereumProvider {
+  isRabby?: boolean;
+  isMetaMask?: boolean;
+  providers?: EthereumProvider[];
   request<T = unknown>(args: { method: string; params?: unknown }): Promise<T>;
   on?(event: "accountsChanged", listener: (accounts: string[]) => void): void;
   on?(event: "chainChanged", listener: (chainId: string) => void): void;
@@ -22,13 +25,24 @@ interface EthereumProvider {
 declare global {
   interface Window {
     ethereum?: EthereumProvider;
+    rabby?: EthereumProvider;
   }
 }
 
 const BASE_CHAIN_ID = "0x2105";
 
-const getProvider = (): EthereumProvider | undefined =>
-  typeof window === "undefined" ? undefined : window.ethereum;
+const getProvider = (): EthereumProvider | undefined => {
+  if (typeof window === "undefined") return undefined;
+  // If Rabby is installed specifically on window.rabby
+  if (window.rabby) return window.rabby;
+  // Check if multiple providers are injected into window.ethereum (e.g. Rabby + MetaMask)
+  if (window.ethereum?.providers?.length) {
+    const rabbyProvider = window.ethereum.providers.find((p) => p.isRabby);
+    if (rabbyProvider) return rabbyProvider;
+    return window.ethereum.providers[0];
+  }
+  return window.ethereum;
+};
 
 function providerErrorCode(error: unknown): number | undefined {
   if (typeof error === "object" && error !== null && "code" in error) {
@@ -98,7 +112,7 @@ export function useWallet() {
     const eth = getProvider();
     if (!eth) {
       setError(
-        "No Web3 wallet detected. Please install MetaMask or Coinbase Wallet, or paste your address manually."
+        "No Web3 wallet detected. Please install Rabby, MetaMask, or Coinbase Wallet, or paste your address manually."
       );
       return null;
     }
