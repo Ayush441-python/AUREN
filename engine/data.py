@@ -30,6 +30,8 @@ def _download(field: str, tickers: list[str], period: str) -> pd.DataFrame | Non
             df = df.to_frame(tickers[0])
         # Drop empty rows AND tickers Yahoo returned nothing for.
         df = df.dropna(how="all").dropna(axis=1, how="all")
+        if isinstance(df.index, pd.DatetimeIndex) and df.index.tz is not None:
+            df.index = df.index.tz_localize(None)
         if not df.empty:
             return df
     except Exception:
@@ -70,6 +72,14 @@ def _load(field: str, tickers: list[str], period: str,
                     pass
 
     df = df[[t for t in tickers if t in df.columns]]
+    if any(t not in df.columns or df[t].dropna().empty for t in tickers) or len(df.dropna()) < 2:
+        cached = _cached(cache_path, tickers)
+        if (
+            not cached.empty
+            and all(t in cached.columns and not cached[t].dropna().empty for t in tickers)
+            and len(cached.dropna()) >= 2
+        ):
+            df = cached[[t for t in tickers if t in cached.columns]]
     if not df.empty:
         with _lock:
             _memo[key] = (now, df)
