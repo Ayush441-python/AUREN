@@ -143,17 +143,18 @@ def compute_portfolio_risk(weights: Dict[str, float], period: str = "2y") -> dic
     historical_worst = worst_periods(pr)
 
     start = prices.index[0]
-    norm_prices = (prices / prices.iloc[0] * 100).round(2)
+    raw_norm = prices / prices.iloc[0] * 100
+    norm_prices = raw_norm.round(2)
+    rebased_portfolio = (raw_norm[w.index] @ w).round(2)
 
     value = (1 + pr).cumprod()
-    cum_ret = pd.concat([pd.Series([1.0], index=[start]), value]) * 100
     dd = value / value.cummax() - 1
     dd_series = pd.concat([pd.Series([0.0], index=[start]), dd])
 
     dates = [d.strftime("%Y-%m-%d") for d in prices.index]
 
     price_series = {col: norm_prices[col].tolist() for col in norm_prices.columns}
-    price_series["Portfolio"] = cum_ret.round(2).tolist()
+    price_series["Portfolio"] = rebased_portfolio.tolist()
 
     corr_matrix = {
         "columns": list(corr.columns),

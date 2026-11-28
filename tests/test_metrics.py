@@ -73,3 +73,29 @@ def test_stress_scenario():
     w = pd.Series([0.5, 0.5], index=["NVDA", "GLD"])
     shocks = {"Big Tech": -0.20}
     assert stress(w, shocks) == pytest.approx(-0.10)
+
+
+def test_worst_periods_short_series_returns_finite_float():
+    from engine.stress import worst_periods
+    pr = pd.Series([-0.02, 0.01, -0.04, 0.005, -0.01])
+    res = worst_periods(pr)
+    assert res["worst_day"] == pytest.approx(-0.04)
+    assert pd.notna(res["worst_month"])
+    expected_cum = (1.0 - 0.02) * (1.0 + 0.01) * (1.0 - 0.04) * (1.0 + 0.005) * (1.0 - 0.01) - 1.0
+    assert res["worst_month"] == pytest.approx(expected_cum)
+
+
+def test_rebased_portfolio_index_starts_at_100_and_stays_in_convex_hull():
+    from engine.metrics import portfolio_returns
+    dates = pd.date_range("2026-01-01", periods=3, freq="D")
+    # Asset A rises +100% then falls -50% back to 100; Asset B stays at 100
+    prices = pd.DataFrame({"A": [100.0, 200.0, 100.0], "B": [100.0, 100.0, 100.0]}, index=dates)
+    w = pd.Series({"A": 0.5, "B": 0.5})
+    norm = prices / prices.iloc[0] * 100.0
+    rebased_portfolio = norm[w.index] @ w
+    assert rebased_portfolio.iloc[0] == pytest.approx(100.0)
+    assert rebased_portfolio.iloc[-1] == pytest.approx(100.0)
+    # Daily-rebalanced cumprod would drift to 112.5 outside both assets (100.0)
+    pr = portfolio_returns(prices, w)
+    daily_rebal = (1.0 + pr).cumprod() * 100.0
+    assert daily_rebal.iloc[-1] == pytest.approx(112.5)
