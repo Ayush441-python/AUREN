@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BASE_PORTFOLIO_ANALYSIS, EMPTY_PORTFOLIO_ANALYSIS } from "@/lib/mock";
 import { calculateRisk } from "@/lib/api";
@@ -85,6 +85,7 @@ export function Workstation({
   const [builderOpen, setBuilderOpen] = useState(openBuilder);
   const [walletOpen, setWalletOpen] = useState(false);
   const [simulation, setSimulation] = useState<SimulationComparison | null>(null);
+  const customPortfolioApplied = useRef(false);
 
   const wallet = useWallet();
   const portfolioName =
@@ -119,13 +120,13 @@ export function Workstation({
     let active = true;
     calculateRisk(BASE_PORTFOLIO_ANALYSIS.normalized_weights)
       .then((live) => {
-        if (!active || !live || typeof live.score !== "number") return;
+        if (!active || !live || typeof live.score !== "number" || customPortfolioApplied.current) return;
         setData(live);
         setDataStatus("live");
         setError(null);
       })
       .catch((loadError: unknown) => {
-        if (!active) return;
+        if (!active || customPortfolioApplied.current) return;
         setDataStatus("reference");
         setError(
           `Live analysis unavailable: ${errorMessage(
@@ -135,7 +136,7 @@ export function Workstation({
         );
       })
       .finally(() => {
-        if (active) setLoading(false);
+        if (active && !customPortfolioApplied.current) setLoading(false);
       });
     return () => {
       active = false;
@@ -145,6 +146,7 @@ export function Workstation({
   const handleApplyPortfolio = useCallback(
     async (weights: Record<string, number>, name: string) => {
       const previousStatus = dataStatus;
+      customPortfolioApplied.current = true;
       setCustomPortfolioName(name);
       setLoading(true);
       setError(null);
@@ -187,6 +189,7 @@ export function Workstation({
 
   const handleSimulate = useCallback(
     async (newWeights: Record<string, number>) => {
+      customPortfolioApplied.current = true;
       setLoading(true);
       setError(null);
       try {
