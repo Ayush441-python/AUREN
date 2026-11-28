@@ -1,3 +1,4 @@
+import math
 import re
 import sys
 from typing import Dict, List
@@ -133,6 +134,16 @@ def compute_portfolio_risk(weights: Dict[str, float], period: str = "2y") -> dic
     vol = finite(volatility(pr))
     mdd = finite(max_drawdown(pr))
 
+    # VaR paramétrico con la media incluida: el cuantil de pérdida al 95% para un
+    # horizonte h es -(μ·h − z·σ·√h), con μ y σ diarios. La versión anterior usaba
+    # solo múltiplos de la volatilidad anualizada, así que una cartera que cae un
+    # 1% cada sesión —σ≈0, μ=−1%— mostraba 0.0% de VaR en los tres horizontes.
+    # Ver #376.
+    mu_d = finite(float(pr.mean()))
+    sd_d = finite(float(pr.std()))
+    z95 = 1.6448536269514722  # cuantil normal estándar al 95%, una cola
+    var95 = {f"{h}d": round(-(mu_d * h - z95 * sd_d * math.sqrt(h)), 6) for h in (1, 10, 21)}
+
     corr = correlation(prices, w.index).fillna(0.0)
     pairs = high_pairs(corr)
     exposure = sector_exposure(w)
@@ -179,6 +190,15 @@ def compute_portfolio_risk(weights: Dict[str, float], period: str = "2y") -> dic
         },
         "volatility": round(vol, 4),
         "max_drawdown": round(mdd, 4),
+        "parametric_var_95": {
+            "confidence": 0.95,
+            "z": round(z95, 4),
+            "mean_daily": round(mu_d, 6),
+            "stdev_daily": round(sd_d, 6),
+            "1d": var95["1d"],
+            "10d": var95["10d"],
+            "21d": var95["21d"],
+        },
         "sector_exposure": {k: round(v, 4) for k, v in exposure.to_dict().items()},
         "correlated_pairs": pairs,
         "stress": {name: round(stress(w, s), 4) for name, s in SCENARIOS.items()},
