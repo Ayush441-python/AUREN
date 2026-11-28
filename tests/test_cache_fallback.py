@@ -29,12 +29,15 @@ def test_missing_file_still_returns_an_empty_frame(tmp_path):
     assert df.empty
 
 
-def test_malformed_csv_returns_an_empty_frame(tmp_path):
-    # Una fila con más campos que la cabecera: eso sí es ParserError en pandas.
-    malformed = tmp_path / "prices.csv"
-    malformed.write_text("Date,NVDA\n2026-01-02,100,200\n", encoding="utf-8")
+def test_a_parse_error_returns_an_empty_frame(tmp_path, monkeypatch):
+    # pandas es indulgente con filas cortas o largas, así que el ParserError se
+    # provoca en el borde: lo que importa es que el guardia lo convierta en vacío.
+    def boom(*args, **kwargs):
+        raise pd.errors.ParserError("Error tokenizing data. C error: Expected 2 fields")
 
-    df = _cached(malformed, ["NVDA"])
+    monkeypatch.setattr("pandas.read_csv", boom)
+
+    df = _cached(tmp_path / "prices.csv", ["NVDA"])
 
     assert df.empty
 
