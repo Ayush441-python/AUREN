@@ -33,3 +33,9 @@ services:
         value: 20
       - key: NEXT_PUBLIC_API_URL
         value: https://auren-api-8yrq.onrender.com
+      - key: RISK_API_URL
+        value: https://auren-api-8yrq.onrender.com/risk
+      - key: LIQUIDITY_API_URL
+        value: https://auren-api-8yrq.onrender.com/liquidity
+      - key: WALLET_API_URL
+        value: https://auren-api-8yrq.onrender.com/wallet

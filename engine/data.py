@@ -13,8 +13,6 @@ ROOT = pathlib.Path(__file__).parent.parent / "data"
 CACHE = ROOT / "prices.csv"
 VOL_CACHE = ROOT / "volume.csv"
 
-# In-memory cache so /risk, /liquidity and the what-if tab do not each hit
-# Yahoo Finance again for the same tickers (slow, and Yahoo rate-limits).
 TTL_SECONDS = 3600
 _memo: dict = {}
 _lock = threading.Lock()
@@ -28,7 +26,6 @@ def _download(field: str, tickers: list[str], period: str) -> pd.DataFrame | Non
                          progress=False)[field]
         if isinstance(df, pd.Series):
             df = df.to_frame(tickers[0])
-        # Drop empty rows AND tickers Yahoo returned nothing for.
         df = df.dropna(how="all").dropna(axis=1, how="all")
         if not df.empty:
             return df
@@ -41,6 +38,10 @@ def _cached(path: pathlib.Path, tickers: list[str]) -> pd.DataFrame:
     try:
         cached = pd.read_csv(path, index_col=0, parse_dates=True)
     except FileNotFoundError:
+        return pd.DataFrame()
+    except pd.errors.EmptyDataError:
+        return pd.DataFrame()
+    except pd.errors.ParserError:
         return pd.DataFrame()
     return cached[[t for t in tickers if t in cached.columns]]
 
@@ -59,7 +60,6 @@ def _load(field: str, tickers: list[str], period: str,
     if df is None:
         df = _cached(cache_path, tickers)
     else:
-        # Yahoo skipped some tickers: backfill them from the bundled CSV cache.
         missing = [t for t in tickers if t not in df.columns]
         if missing:
             fill = _cached(cache_path, missing)
