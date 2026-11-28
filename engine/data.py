@@ -1,6 +1,8 @@
 import pathlib
 import threading
 import time
+from dataclasses import dataclass
+from typing import Optional
 
 import pandas as pd
 
@@ -18,6 +20,63 @@ VOL_CACHE = ROOT / "volume.csv"
 TTL_SECONDS = 3600
 _memo: dict = {}
 _lock = threading.Lock()
+
+
+@dataclass
+class ExitTime:
+    """Represents exit time with exact value and display rounding.
+    
+    This data structure preserves exact precision for business logic
+    while allowing controlled rounding for display purposes.
+    """
+    exact_value: float
+    
+    def __post_init__(self):
+        # Ensure we have a valid number
+        if not isinstance(self.exact_value, (int, float)):
+            raise ValueError(f"ExitTime must be a number, got {type(self.exact_value)}")
+        self.exact_value = float(self.exact_value)
+    
+    @property
+    def rounded_value(self) -> float:
+        """Rounded to 2 decimal places for display consistency with existing UI."""
+        return round(self.exact_value, 2)
+    
+    @property
+    def display_value(self) -> str:
+        """Formatted for display with 3 decimal places to distinguish close values."""
+        return f"{self.exact_value:.3f}"
+    
+    def __str__(self) -> str:
+        return self.display_value
+    
+    def __repr__(self) -> str:
+        return f"ExitTime(exact_value={self.exact_value}, rounded={self.rounded_value})"
+    
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, ExitTime):
+            return False
+        return self.exact_value == other.exact_value
+    
+    def __lt__(self, other) -> bool:
+        if not isinstance(other, ExitTime):
+            return NotImplemented
+        return self.exact_value < other.exact_value
+    
+    def __le__(self, other) -> bool:
+        if not isinstance(other, ExitTime):
+            return NotImplemented
+        return self.exact_value <= other.exact_value
+    
+    def __gt__(self, other) -> bool:
+        if not isinstance(other, ExitTime):
+            return NotImplemented
+        return self.exact_value > other.exact_value
+    
+    def __ge__(self, other) -> bool:
+        if not isinstance(other, ExitTime):
+            return NotImplemented
+        return self.exact_value >= other.exact_value
 
 
 def _download(field: str, tickers: list[str], period: str) -> pd.DataFrame | None:
