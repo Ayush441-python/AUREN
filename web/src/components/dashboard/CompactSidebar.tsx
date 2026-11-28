@@ -11,7 +11,7 @@ import {
   type LucideIcon,
   PieChart,
   Presentation,
-  ShieldCheck,
+  BookOpen,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
@@ -39,7 +39,7 @@ const NAV_ITEMS: readonly NavItem[] = [
   { id: "stress-testing", label: "Stress Testing", icon: Activity },
   { id: "reports", label: "AI Verification", icon: FileText },
   { id: "historical-performance", label: "Executive Deck", icon: Presentation },
-  { id: "help-support", label: "API & Proof", icon: ShieldCheck },
+  { id: "docs", label: "API & Proof", icon: BookOpen },
 ];
 
 const STATUS_LABEL: Record<DataStatus, string> = {

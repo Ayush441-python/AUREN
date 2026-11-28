@@ -18,6 +18,7 @@ export type NavItemKey =
   | "reports"
   // PREFERENCES
   | "settings"
+  | "docs"
   | "help-support";
 
 export type NavSectionKey = "MAIN" | "ANALYTICS" | "WORKSPACE" | "PREFERENCES";
