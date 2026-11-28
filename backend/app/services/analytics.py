@@ -5,7 +5,7 @@ import pandas as pd
 from fastapi import HTTPException, status
 
 import engine.wallet as wallet_mod
-from engine.data import load_prices, load_volumes
+from engine.data import load_prices, load_unadjusted_prices, load_volumes
 from engine.liquidity import avg_daily_value, days_to_exit
 from engine.metrics import (
     concentration,
@@ -74,6 +74,13 @@ def _get_load_prices_fn():
     if main_mod and hasattr(main_mod, "load_prices"):
         return main_mod.load_prices
     return load_prices
+
+
+def _get_load_unadjusted_prices_fn():
+    main_mod = sys.modules.get("backend.app.main")
+    if main_mod and hasattr(main_mod, "load_unadjusted_prices"):
+        return main_mod.load_unadjusted_prices
+    return load_unadjusted_prices
 
 
 def _get_load_volumes_fn():
@@ -200,7 +207,7 @@ def compute_portfolio_liquidity(
     w = normalize_and_validate_weights(weights)
     tickers = list(w.index)
 
-    fetch_prices = _get_load_prices_fn()
+    fetch_prices = _get_load_unadjusted_prices_fn()
     fetch_volumes = _get_load_volumes_fn()
     prices = fetch_prices(tickers, period=period)
     volumes = fetch_volumes(tickers, period=period)
