@@ -29,7 +29,6 @@ app.py
 scripts/
 conftest.py
 web/
-frontend/
 
 # Tests & Docs
 tests/
