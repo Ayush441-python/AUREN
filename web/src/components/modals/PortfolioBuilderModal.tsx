@@ -71,21 +71,17 @@ export function PortfolioBuilderModal({
     setWalletError(null);
     try {
       const response = await inspectWallet(trimmed);
+      const label = `Base Wallet (${trimmed.slice(0, 6)}...${trimmed.slice(-4)})`;
       if (response.has_holdings && Object.keys(response.portfolio).length > 0) {
-        const label = `Base Wallet (${trimmed.slice(0, 6)}...${trimmed.slice(-4)})`;
         onApplyPortfolio(response.portfolio, label);
-        onClose();
       } else {
-        setWalletError(
-          response.message || "No supported holdings were found at this address."
-        );
+        onApplyPortfolio({}, label);
       }
-    } catch (error) {
-      setWalletError(
-        error instanceof Error && error.message
-          ? error.message
-          : "The wallet service did not respond."
-      );
+      onClose();
+    } catch {
+      const label = `Base Wallet (${trimmed.slice(0, 6)}...${trimmed.slice(-4)})`;
+      onApplyPortfolio({}, label);
+      onClose();
     } finally {
       setWalletLoading(false);
     }

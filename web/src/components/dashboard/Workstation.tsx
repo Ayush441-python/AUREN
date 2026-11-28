@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BASE_PORTFOLIO_ANALYSIS } from "@/lib/mock";
+import { BASE_PORTFOLIO_ANALYSIS, EMPTY_PORTFOLIO_ANALYSIS } from "@/lib/mock";
 import { calculateRisk } from "@/lib/api";
 import { useWallet } from "@/lib/useWallet";
 import type { RiskAnalysis } from "@/lib/types";
@@ -149,6 +149,17 @@ export function Workstation({
       setLoading(true);
       setError(null);
       setSimulation(null);
+
+      // If wallet has no holdings, load empty statistics and instruct user to add stocks
+      if (!weights || Object.keys(weights).length === 0) {
+        setData(EMPTY_PORTFOLIO_ANALYSIS);
+        setDataStatus("live");
+        setError("Wallet connected. No supported stocks or crypto detected in this wallet. Please add stocks/crypto to your wallet or choose a preset.");
+        selectTab("overview");
+        setLoading(false);
+        return;
+      }
+
       try {
         const live = await calculateRisk(weights);
         if (!live || typeof live.score !== "number") {

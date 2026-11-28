@@ -1,5 +1,47 @@
 import { RiskAnalysis } from "./types";
 
+export const EMPTY_PORTFOLIO_ANALYSIS: RiskAnalysis = {
+  score: 0,
+  level: "Low",
+  normalized_weights: {},
+  reasons: [
+    "No holdings found. Add stocks or crypto to your wallet or choose a preset to generate risk metrics.",
+  ],
+  hits: [],
+  dates: [],
+  price_series: {
+    Portfolio: [],
+    SPY: [],
+  },
+  drawdown_series: [],
+  correlation_matrix: {
+    columns: [],
+    data: [],
+  },
+  concentration: {
+    top_asset: "None",
+    top_weight: 0,
+    top3_weight: 0,
+    hhi: 0,
+    effective_assets: 0,
+  },
+  volatility: 0,
+  max_drawdown: 0,
+  sector_exposure: {},
+  correlated_pairs: [],
+  stress: {
+    "Broad Selloff": 0,
+    "Tech Crash": 0,
+    "Crypto Winter": 0,
+    "Rates Shock": 0,
+  },
+  worst_historical_periods: {
+    worst_day: 0,
+    worst_month: 0,
+  },
+  disclaimer: "No assets found in connected wallet. Add stocks/crypto or load a preset.",
+};
+
 export const BASE_PORTFOLIO_ANALYSIS: RiskAnalysis = {
   score: 64,
   level: "Medium",

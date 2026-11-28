@@ -51,18 +51,22 @@ export function WalletConnectModal({
   const [copied, setCopied] = useState(false);
 
   const applyInspectedWallet = async (address: string, labelPrefix: string) => {
-    const response = await inspectWallet(address);
-    if (response.has_holdings && Object.keys(response.portfolio).length > 0) {
-      onSelectPortfolio(
-        response.portfolio,
-        `${labelPrefix} (${shortAddress(address)})`
-      );
-      onClose();
-      return;
+    try {
+      const response = await inspectWallet(address);
+      if (response.has_holdings && Object.keys(response.portfolio).length > 0) {
+        onSelectPortfolio(
+          response.portfolio,
+          `${labelPrefix} (${shortAddress(address)})`
+        );
+        onClose();
+        return;
+      }
+    } catch {
+      // If backend is unreachable or inspect fails, still connect wallet with empty portfolio
     }
-    setErrorMessage(
-      response.message || "No supported holdings were found at this address."
-    );
+    // Connect wallet with empty portfolio and prompt user to add stocks
+    onSelectPortfolio({}, `${labelPrefix} (${shortAddress(address)})`);
+    onClose();
   };
 
   const connectBrowser = async () => {
