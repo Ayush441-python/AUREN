@@ -1,5 +1,6 @@
 import pandas as pd
 import pytest
+from unittest.mock import patch
 from engine.metrics import (
     concentration,
     volatility,
@@ -73,3 +74,19 @@ def test_stress_scenario():
     w = pd.Series([0.5, 0.5], index=["NVDA", "GLD"])
     shocks = {"Big Tech": -0.20}
     assert stress(w, shocks) == pytest.approx(-0.10)
+
+
+def test_chip_selloff_semiconductor_equipment_and_materials_shock():
+    # Issue #401: Dynamic equipment lookup returns "Semiconductor Equipment & Materials"
+    # A portfolio holding 50% KLAC (equipment & materials), 25% AMAT (equipment), 25% MSFT (Big Tech)
+    # in "Chip selloff (semis fall 25%)" must return (0.50 + 0.25) * -0.25 = -0.1875 (-18.75%)
+    from engine.stress import SCENARIOS, shock_for
+    from engine.universe import SECTORS
+    scenario = SCENARIOS["Chip selloff (semis fall 25%)"]
+    w = pd.Series({"KLAC": 0.50, "AMAT": 0.25, "MSFT": 0.25})
+    with patch.dict(SECTORS, {"KLAC": "Semiconductor Equipment & Materials"}):
+        assert shock_for("KLAC", scenario) == pytest.approx(-0.25)
+        assert shock_for("AMAT", scenario) == pytest.approx(-0.25)
+        assert shock_for("MSFT", scenario) == pytest.approx(0.0)
+        assert stress(w, scenario) == pytest.approx(-0.1875)
+
