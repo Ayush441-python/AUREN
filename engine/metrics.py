@@ -25,7 +25,10 @@ def portfolio_returns(prices: pd.DataFrame, w: pd.Series) -> pd.Series:
 
 
 def volatility(pr: pd.Series) -> float:
-    return float(pr.std() * np.sqrt(252))  # annualised
+    """Annualized return volatility using 365 days on calendar-padded series, else 252."""
+    has_weekends = isinstance(pr.index, pd.DatetimeIndex) and bool((pr.index.day_of_week >= 5).any())
+    periods_per_year = 365.0 if has_weekends else 252.0
+    return float(pr.std() * np.sqrt(periods_per_year))
 
 
 def max_drawdown(pr: pd.Series) -> float:
@@ -34,7 +37,17 @@ def max_drawdown(pr: pd.Series) -> float:
 
 
 def correlation(prices: pd.DataFrame, tickers) -> pd.DataFrame:
-    return prices[list(tickers)].dropna().pct_change().dropna().corr()
+    """Pairwise return correlation, masking forward-filled weekend equity plateaus."""
+    cols = list(tickers)
+    r = prices[cols].dropna().pct_change().dropna()
+    if isinstance(r.index, pd.DatetimeIndex):
+        is_weekend = r.index.day_of_week >= 5
+        if is_weekend.any():
+            r = r.copy()
+            for col in cols:
+                if not str(col).endswith("-USD"):
+                    r.loc[is_weekend, col] = np.nan
+    return r.corr()
 
 
 def high_pairs(corr: pd.DataFrame, threshold: float = 0.7) -> list[tuple]:
