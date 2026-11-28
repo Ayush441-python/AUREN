@@ -107,3 +107,32 @@ def test_wallet_endpoint_shape(monkeypatch):
     assert data["portfolio"] == {"NVDA": 1.0}
     assert data["holdings"][0]["ticker"] == "NVDA"
     assert data["total_value"] == 200.0
+
+
+def test_wallet_import_small_holding_weights_positive_and_accepted_by_risk(monkeypatch):
+    """Verify wallet import preserves small positive weights (e.g. $0.01 USDC) so /risk succeeds."""
+    import numpy as np
+    import pandas as pd
+    import backend.app.main as api_module
+
+    rows = [
+        {"token": "NVDAx", "ticker": "NVDA", "address": "0x1", "tokens": 250.0, "shares": 250.0,
+         "price": 120.0, "value": 30000.0, "supported": True, "nav_updated": None},
+        {"token": "USDC", "ticker": "USDC", "address": "0x2", "tokens": 0.01, "shares": 0.01,
+         "price": 1.0, "value": 0.01, "supported": True, "nav_updated": None},
+    ]
+    idx = pd.date_range("2026-01-01", periods=40, freq="B")
+    prices = pd.DataFrame({
+        "NVDA": 100.0 * (1 + 0.001 * np.arange(40)),
+        "USDC": [1.0] * 40,
+    }, index=idx)
+    monkeypatch.setattr(api_module, "wallet_holdings", lambda addr, supported, rpc: {"rows": rows, "n_tokens": 2})
+    monkeypatch.setattr(api_module, "load_prices", lambda ts, period="2y": prices[list(ts)])
+
+    data = client.post("/wallet", json={"address": "0x" + "a" * 40}).json()
+    assert data["total_value"] == 30000.01
+    assert data["portfolio"]["USDC"] > 0
+    assert abs((data["portfolio"]["NVDA"] + data["portfolio"]["USDC"]) - 1.0) < 1e-6
+
+    risk_resp = client.post("/risk", json={"weights": data["portfolio"]})
+    assert risk_resp.status_code == 200
