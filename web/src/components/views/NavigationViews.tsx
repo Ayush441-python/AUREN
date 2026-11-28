@@ -34,10 +34,16 @@ export interface NavViewProps {
   onNavigateTab?: (tab: string) => void;
 }
 
+export interface RiskModelSettings {
+  covarianceWindow: string;
+  varConfidence: string;
+  riskFreeRate: string;
+}
+
 /**
  * 1. Risk Metrics View (Sharpe, Sortino, Tail ratios, Parametric VaR)
  */
-export function RiskMetricsView({ data, portfolioName }: NavViewProps) {
+export function RiskMetricsView({ data, portfolioName, riskSettings }: NavViewProps & { riskSettings: RiskModelSettings }) {
   const annReturnEst = data.volatility * 0.65;
   const sharpe = (annReturnEst / (data.volatility || 0.001)).toFixed(2);
   const sortino = (annReturnEst / (Math.abs(data.max_drawdown) * 0.5 || 0.001)).toFixed(2);
@@ -56,12 +62,12 @@ export function RiskMetricsView({ data, portfolioName }: NavViewProps) {
               Parametric Risk Metrics &amp; Ratios
             </h1>
             <p className="mt-1 text-xs text-[#9299A3]">
-              Decomposed statistical risk indicators calibrated on 252 trading sessions.
+              Decomposed statistical risk indicators calibrated on {riskSettings.covarianceWindow} trading sessions.
             </p>
           </div>
           <div className="flex items-center gap-2">
             <span className="rounded-md border border-[#272B33] bg-[#161A22] px-3 py-1 font-mono text-xs text-[#D6B56D]">
-              Confidence 95.0%
+              Confidence {Number(riskSettings.varConfidence).toFixed(1)}%
             </span>
           </div>
         </div>
@@ -74,7 +80,7 @@ export function RiskMetricsView({ data, portfolioName }: NavViewProps) {
             Sharpe Ratio
           </span>
           <p className="mt-2 font-mono text-2xl font-bold text-[#F4F2ED]">{sharpe}</p>
-          <span className="mt-1 block text-[10px] text-[#636B75]">Rf = 4.25% (US 10Y)</span>
+          <span className="mt-1 block text-[10px] text-[#636B75]">Rf = {riskSettings.riskFreeRate} (US 10Y)</span>
         </div>
         <div className="rounded-xl border border-[#272B33] bg-[#12151B] p-4">
           <span className="font-mono text-[10px] uppercase tracking-wider text-[#9299A3]">
@@ -117,14 +123,14 @@ export function RiskMetricsView({ data, portfolioName }: NavViewProps) {
             </thead>
             <tbody className="divide-y divide-[#1D2128] font-mono text-xs text-[#E4E6EA]">
               <tr>
-                <td className="py-3 font-medium text-[#F4F2ED]">Value at Risk (VaR 95%)</td>
+                <td className="py-3 font-medium text-[#F4F2ED]">Value at Risk (VaR {riskSettings.varConfidence}%)</td>
                 <td className="py-3 text-[#D46B6B]">{formatPercent(data.volatility * 0.103)}</td>
                 <td className="py-3 text-[#D46B6B]">{formatPercent(data.volatility * 0.326)}</td>
                 <td className="py-3 text-[#D46B6B]">{formatPercent(data.volatility * 0.472)}</td>
                 <td className="py-3 text-[#9299A3]">Parametric Gaussian</td>
               </tr>
               <tr>
-                <td className="py-3 font-medium text-[#F4F2ED]">Conditional VaR (CVaR 95%)</td>
+                <td className="py-3 font-medium text-[#F4F2ED]">Conditional VaR (CVaR {riskSettings.varConfidence}%)</td>
                 <td className="py-3 text-[#D46B6B]">{formatPercent(data.volatility * 0.138)}</td>
                 <td className="py-3 text-[#D46B6B]">{formatPercent(data.volatility * 0.437)}</td>
                 <td className="py-3 text-[#D46B6B]">{formatPercent(data.volatility * 0.633)}</td>
@@ -485,7 +491,7 @@ export function SavedPortfoliosView() {
 /**
  * 6. Settings View
  */
-export function SettingsView() {
+export function SettingsView({ settings, onChange }: { settings: RiskModelSettings; onChange: (settings: RiskModelSettings) => void }) {
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-[#272B33] bg-[#12151B] p-5">
@@ -509,7 +515,7 @@ export function SettingsView() {
                 <span className="font-medium text-[#F4F2ED]">Covariance Estimation Window</span>
                 <p className="text-[#636B75]">Number of trading sessions used for empirical covariance</p>
               </div>
-              <select className="rounded-md border border-[#272B33] bg-[#161A22] px-3 py-1.5 font-mono text-xs text-[#F4F2ED] focus:border-[#D6B56D]">
+              <select value={settings.covarianceWindow} onChange={(event) => onChange({ ...settings, covarianceWindow: event.target.value })} className="rounded-md border border-[#272B33] bg-[#161A22] px-3 py-1.5 font-mono text-xs text-[#F4F2ED] focus:border-[#D6B56D]">
                 <option value="252">252 Trading Days (1 Year)</option>
                 <option value="504">504 Trading Days (2 Years)</option>
                 <option value="126">126 Trading Days (6 Months)</option>
@@ -521,7 +527,7 @@ export function SettingsView() {
                 <span className="font-medium text-[#F4F2ED]">VaR Confidence Level</span>
                 <p className="text-[#636B75]">Standard threshold for Value at Risk and Expected Shortfall</p>
               </div>
-              <select className="rounded-md border border-[#272B33] bg-[#161A22] px-3 py-1.5 font-mono text-xs text-[#F4F2ED] focus:border-[#D6B56D]">
+              <select value={settings.varConfidence} onChange={(event) => onChange({ ...settings, varConfidence: event.target.value })} className="rounded-md border border-[#272B33] bg-[#161A22] px-3 py-1.5 font-mono text-xs text-[#F4F2ED] focus:border-[#D6B56D]">
                 <option value="95">95.0% Confidence</option>
                 <option value="99">99.0% Confidence</option>
                 <option value="97.5">97.5% Confidence</option>
@@ -535,7 +541,8 @@ export function SettingsView() {
               </div>
               <input
                 type="text"
-                defaultValue="4.25%"
+                value={settings.riskFreeRate}
+                onChange={(event) => onChange({ ...settings, riskFreeRate: event.target.value })}
                 className="w-24 rounded-md border border-[#272B33] bg-[#161A22] px-3 py-1.5 font-mono text-xs text-[#F4F2ED] focus:border-[#D6B56D]"
               />
             </div>
